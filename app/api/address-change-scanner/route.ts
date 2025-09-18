@@ -215,48 +215,50 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // SPECIAL CASE: Add known escaped companies for Risør
-    if (targetKommune === "4201" || !targetKommune) {
-      // Add DET LILLE HOTEL AS as a known escaped case
-      const detLilleHotelCase: AddressChangeRecord = {
-        companyName: "DET LILLE HOTEL AS",
-        organizationNumber: "989213598",
-        oldAddress: {
-          address: "Risør (historical)",
-          kommuneNumber: "4201",
-          kommuneName: "RISØR",
-          postalCode: "4950",
-        },
-        newAddress: {
-          address: "Rundtjernveien 52B, 0672 OSLO",
-          kommuneNumber: "0301",
-          kommuneName: "OSLO",
-          postalCode: "0672",
-        },
-        changeDate: "2024-01-01", // Approximate - moved this year
-        isBankrupt: false, // Not bankrupt yet, but high risk
-        fraudRiskLevel: "CRITICAL",
-        suspiciousPatterns: [
-          "ESCAPED_FROM_RISOR",
-          "MAINTAINS_RISOR_ACCOUNTANT",
-          "LAWYER_BOARD_CONTROL",
-          "HOTEL_CASH_BUSINESS",
-          "CROSS_KOMMUNE_PROFESSIONAL_SERVICES",
-        ],
-        bankruptcyDate: null,
-      };
+  // GENERIC DETECTION: Add escaped companies using generic algorithm
+  if (targetKommune === "4201" || !targetKommune) {
+    try {
+      const { detectEscapedCompanies } = await import("@/lib/generic-fraud-detector");
+      const escapedPatterns = await detectEscapedCompanies("4201");
+      
+      for (const pattern of escapedPatterns) {
+        const addressChangeRecord: AddressChangeRecord = {
+          companyName: pattern.companyName,
+          organizationNumber: pattern.organizationNumber,
+          oldAddress: {
+            address: pattern.suspectedOriginKommune.kommuneName + " (historical)",
+            kommuneNumber: pattern.suspectedOriginKommune.kommuneNumber,
+            kommuneName: pattern.suspectedOriginKommune.kommuneName,
+            postalCode: "UNKNOWN",
+          },
+          newAddress: {
+            address: pattern.currentAddress.address,
+            kommuneNumber: pattern.currentAddress.kommuneNumber,
+            kommuneName: pattern.currentAddress.kommuneName,
+            postalCode: "UNKNOWN",
+          },
+          changeDate: "2024-01-01", // Generic date - would be improved with real data
+          isBankrupt: false, // Most are not bankrupt yet, just high risk
+          fraudRiskLevel: pattern.riskLevel,
+          suspiciousPatterns: pattern.fraudIndicators,
+          bankruptcyDate: null,
+        };
 
-      // Only add if not already in the list
-      const alreadyExists = filteredChanges.some(
-        (ac) => ac.organizationNumber === "989213598"
-      );
-      if (!alreadyExists) {
-        filteredChanges.push(detLilleHotelCase);
-        console.log(
-          "🚨 ADDED KNOWN ESCAPED COMPANY: DET LILLE HOTEL AS from Risør"
+        // Only add if not already in the list
+        const alreadyExists = filteredChanges.some(
+          (ac) => ac.companyName === pattern.companyName
         );
+        if (!alreadyExists) {
+          filteredChanges.push(addressChangeRecord);
+          console.log(
+            `🚨 GENERIC DETECTION: Added ${pattern.companyName} (${pattern.riskLevel} risk)`
+          );
+        }
       }
+    } catch (error) {
+      console.error("Generic fraud detection failed:", error);
     }
+  }
 
     if (riskLevel) {
       filteredChanges = filteredChanges.filter(

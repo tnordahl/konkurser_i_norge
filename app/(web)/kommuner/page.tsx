@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Star, Bell, Database, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Star, Bell, Database, RefreshCw, Search } from "lucide-react";
 import { useState } from "react";
 import { KommuneData } from "@/lib/data-fetcher";
 import useSWR from "swr";
@@ -238,6 +239,32 @@ export default function KommunerPage() {
             : "Ingen data"}
         </p>
       </div>
+
+      {/* Detective Feature Highlight */}
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 mb-6">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">🕵️‍♂️</div>
+              <div>
+                <h3 className="font-semibold text-lg text-purple-900">
+                  Global Detektiv-Undersøkelse
+                </h3>
+                <p className="text-purple-700 text-sm">
+                  Undersøk selskap og nettverk i hele Norge. Avdekk forbindelser
+                  og risikofaktorer.
+                </p>
+              </div>
+            </div>
+            <Link href="/detective">
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Search className="h-4 w-4 mr-2" />
+                Start undersøkelse
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       <FavoriteKommuner kommuner={kommuner} />
 

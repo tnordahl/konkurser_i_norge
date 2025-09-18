@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/database";
+import { detectEscapedCompanies } from "@/lib/generic-fraud-detector";
 
 /**
  * Search for bankruptcies of companies that previously had addresses in this kommune
@@ -333,8 +334,30 @@ export async function GET(
       },
     });
 
-    // Find escaped bankruptcies (companies that moved out before bankruptcy)
-    const escapedBankruptcies = await findEscapedBankruptcies(kommuneNumber);
+    // Find escaped bankruptcies using generic detection (same as address-change-scanner)
+    const detectedPatterns = await detectEscapedCompanies(kommuneNumber);
+
+    // Convert to legacy format for compatibility
+    const escapedBankruptcies = detectedPatterns.map((pattern) => ({
+      companyName: pattern.companyName,
+      organizationNumber: pattern.organizationNumber,
+      bankruptcyDate: "Pattern detected - Investigation required",
+      currentAddress: `${pattern.currentAddress.kommuneName} (${pattern.currentAddress.kommuneNumber})`,
+      previousKommune: pattern.suspectedOriginKommune.kommuneName,
+      currentKommune: pattern.currentAddress.kommuneName,
+      connectionType: pattern.detectionMethod,
+      riskLevel: pattern.riskLevel,
+      fraudType: "ESCAPED_BEFORE_TROUBLE",
+      alertLevel: pattern.riskLevel,
+      confidence: pattern.confidence,
+      fraudIndicators: pattern.fraudIndicators,
+      riskScore:
+        pattern.riskLevel === "CRITICAL"
+          ? 100
+          : pattern.riskLevel === "HIGH"
+            ? 80
+            : 60,
+    }));
 
     // Find recently moved companies (early warning)
     const recentMovers = await findRecentlyMovedCompanies(kommuneNumber);
@@ -348,10 +371,18 @@ export async function GET(
     }));
 
     const totalAlerts = escapedBankruptcies.length + recentMovers.length;
+    // Calculate fraud risk based on pattern detection results
+    const criticalPatterns = detectedPatterns.filter(
+      (p) => p.riskLevel === "CRITICAL"
+    ).length;
+    const highPatterns = detectedPatterns.filter(
+      (p) => p.riskLevel === "HIGH"
+    ).length;
+
     const fraudRiskLevel =
-      totalAlerts > 5
+      criticalPatterns > 0
         ? "CRITICAL"
-        : totalAlerts > 2
+        : highPatterns > 0
           ? "HIGH"
           : totalAlerts > 0
             ? "MEDIUM"

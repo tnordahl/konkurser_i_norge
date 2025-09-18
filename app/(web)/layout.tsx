@@ -10,6 +10,12 @@ export default function WebLayout({ children }: { children: React.ReactNode }) {
               Konkurser i Norge
             </Link>
             <div className="flex gap-4">
+              <Link
+                href="/detective"
+                className="text-gray-600 hover:text-gray-900"
+              >
+                🕵️‍♂️ Detektiv
+              </Link>
               <Link href="/admin" className="text-gray-600 hover:text-gray-900">
                 Admin
               </Link>
