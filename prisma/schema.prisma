@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+}
+
+model Kommune {
+  id             String          @id @default(cuid())
+  kommuneNumber  String          @unique
+  name           String
+  county         String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  addressChanges AddressChange[]
+  bankruptcies   Bankruptcy[]
+
+  @@map("kommuner")
+}
+
+model Bankruptcy {
+  id                     String          @id @default(cuid())
+  companyName            String
+  organizationNumber     String          @unique
+  bankruptcyDate         DateTime
+  address                String?
+  industry               String?
+  hasRecentAddressChange Boolean         @default(false)
+  kommuneId              String
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  lastChecked            DateTime        @default(now())
+  sourceUrl              String?
+  sourceSystem           String?
+  addressHistory         AddressChange[]
+  kommune                Kommune         @relation(fields: [kommuneId], references: [id])
+
+  @@index([kommuneId])
+  @@index([bankruptcyDate])
+  @@index([organizationNumber])
+  @@map("bankruptcies")
+}
+
+model AddressChange {
+  id                 String      @id @default(cuid())
+  companyName        String
+  organizationNumber String
+  changeDate         DateTime
+  fromAddress        String
+  toAddress          String
+  direction          String
+  kommuneId          String
+  bankruptcyId       String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  bankruptcy         Bankruptcy? @relation(fields: [bankruptcyId], references: [id])
+  kommune            Kommune     @relation(fields: [kommuneId], references: [id])
+
+  @@index([kommuneId])
+  @@index([organizationNumber])
+  @@index([changeDate])
+  @@map("address_changes")
+}
+
+model DataSyncLog {
+  id               String    @id @default(cuid())
+  syncType         String
+  status           String
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  recordsProcessed Int?
+  recordsAdded     Int?
+  recordsUpdated   Int?
+  recordsFailed    Int?
+  kommuneId        String?
+  errorMessage     String?
+  metadata         Json?
+
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+  @@map("data_sync_logs")
+}

@@ -12,64 +12,19 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Star, Bell } from "lucide-react";
+import { Star, Bell, Database, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { KommuneData } from "@/lib/data-fetcher";
+import useSWR from "swr";
 
-// Extended data for development - in production this would come from Sanity
-const favoriteKommuner = [
-  { id: "4201", name: "Risør", notifications: 2 },
-  { id: "4205", name: "Gjerstad", notifications: 0 },
-  { id: "4206", name: "Tvedestrand", notifications: 1 },
-  { id: "4203", name: "Arendal", notifications: 5 },
-];
+// Favorite kommuner - this could be stored in localStorage or user preferences
+const favoriteKommuneIds = ["4201", "4203", "0301", "1103"];
 
-const allKommuner = [
-  { id: "0301", name: "Oslo", notifications: 45 },
-  { id: "1101", name: "Eigersund", notifications: 2 },
-  { id: "1103", name: "Stavanger", notifications: 12 },
-  { id: "1106", name: "Haugesund", notifications: 8 },
-  { id: "1111", name: "Sokndal", notifications: 0 },
-  { id: "1112", name: "Lund", notifications: 1 },
-  { id: "1114", name: "Bjerkreim", notifications: 0 },
-  { id: "1119", name: "Hå", notifications: 3 },
-  { id: "1120", name: "Klepp", notifications: 2 },
-  { id: "1121", name: "Time", notifications: 4 },
-  { id: "1122", name: "Gjesdal", notifications: 1 },
-  { id: "1124", name: "Sola", notifications: 6 },
-  { id: "1125", name: "Randaberg", notifications: 2 },
-  { id: "1127", name: "Strand", notifications: 3 },
-  { id: "1129", name: "Forsand", notifications: 0 },
-  { id: "1130", name: "Sandnes", notifications: 18 },
-  { id: "1133", name: "Hjelmeland", notifications: 1 },
-  { id: "1134", name: "Suldal", notifications: 2 },
-  { id: "1135", name: "Sauda", notifications: 1 },
-  { id: "1144", name: "Kvitsøy", notifications: 0 },
-  { id: "4201", name: "Risør", notifications: 2 },
-  { id: "4203", name: "Arendal", notifications: 5 },
-  { id: "4204", name: "Kristiansand", notifications: 22 },
-  { id: "4205", name: "Gjerstad", notifications: 0 },
-  { id: "4206", name: "Tvedestrand", notifications: 1 },
-  { id: "4207", name: "Vegårshei", notifications: 0 },
-  { id: "4211", name: "Grimstad", notifications: 7 },
-  { id: "4212", name: "Bykle", notifications: 0 },
-  { id: "4213", name: "Iveland", notifications: 0 },
-  { id: "4214", name: "Evje og Hornnes", notifications: 1 },
-  { id: "4215", name: "Bygland", notifications: 0 },
-  { id: "4216", name: "Valle", notifications: 0 },
-  { id: "4217", name: "Birkenes", notifications: 2 },
-  { id: "4218", name: "Lillesand", notifications: 3 },
-  { id: "4219", name: "Vennesla", notifications: 4 },
-  { id: "4220", name: "Åseral", notifications: 0 },
-  { id: "4221", name: "Lyngdal", notifications: 2 },
-  { id: "4222", name: "Hægebostad", notifications: 0 },
-  { id: "4223", name: "Kvinesdal", notifications: 1 },
-  { id: "4224", name: "Sirdal", notifications: 0 },
-  { id: "4225", name: "Flekkefjord", notifications: 4 },
-  { id: "4226", name: "Farsund", notifications: 3 },
-  { id: "4227", name: "Lindesnes", notifications: 2 },
-];
-
-function MunicipalitySearch({ onSearch }: { onSearch: (term: string) => void }) {
+function MunicipalitySearch({
+  onSearch,
+}: {
+  onSearch: (term: string) => void;
+}) {
   return (
     <div className="mb-6">
       <Input
@@ -84,7 +39,7 @@ function MunicipalitySearch({ onSearch }: { onSearch: (term: string) => void }) 
 
 function NotificationBadge({ count }: { count: number }) {
   if (count === 0) return null;
-  
+
   return (
     <Badge variant="destructive" className="ml-2 flex items-center gap-1">
       <Bell className="h-3 w-3" />
@@ -93,7 +48,30 @@ function NotificationBadge({ count }: { count: number }) {
   );
 }
 
-function FavoriteKommuner() {
+function FavoriteKommuner({ kommuner }: { kommuner: KommuneData[] }) {
+  const favoriteKommuner = kommuner.filter((k) =>
+    favoriteKommuneIds.includes(k.id)
+  );
+
+  if (favoriteKommuner.length === 0) {
+    return (
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+            Favoritter
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500 text-sm">
+            Ingen favoritt-kommuner funnet. Data lastes når systemet kobles til
+            database.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -112,9 +90,11 @@ function FavoriteKommuner() {
             >
               <div>
                 <div className="font-medium">{kommune.name}</div>
-                <div className="text-sm text-gray-500">{kommune.id}</div>
+                <div className="text-sm text-gray-500">
+                  {kommune.id} • {kommune.county}
+                </div>
               </div>
-              <NotificationBadge count={kommune.notifications} />
+              <NotificationBadge count={kommune.bankruptcyCount} />
             </Link>
           ))}
         </div>
@@ -123,7 +103,21 @@ function FavoriteKommuner() {
   );
 }
 
-function MunicipalityList({ kommuner }: { kommuner: typeof allKommuner }) {
+function MunicipalityList({ kommuner }: { kommuner: KommuneData[] }) {
+  if (kommuner.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <Database className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <h3 className="font-medium text-gray-900 mb-2">
+          Ingen kommunedata tilgjengelig
+        </h3>
+        <p className="text-gray-500 text-sm">
+          Systemet må kobles til Postgres database for å vise kommuner.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-h-96 overflow-y-auto border rounded-lg">
       <Table>
@@ -131,7 +125,8 @@ function MunicipalityList({ kommuner }: { kommuner: typeof allKommuner }) {
           <TableRow>
             <TableHead>Kommunenummer</TableHead>
             <TableHead>Navn</TableHead>
-            <TableHead>Varsler</TableHead>
+            <TableHead>Fylke</TableHead>
+            <TableHead>Konkurser</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -144,13 +139,16 @@ function MunicipalityList({ kommuner }: { kommuner: typeof allKommuner }) {
                   className="text-blue-600 hover:text-blue-800 hover:underline flex items-center"
                 >
                   {kommune.name}
-                  <NotificationBadge count={kommune.notifications} />
+                  <NotificationBadge count={kommune.bankruptcyCount} />
                 </Link>
               </TableCell>
+              <TableCell className="text-sm text-gray-600">
+                {kommune.county}
+              </TableCell>
               <TableCell>
-                {kommune.notifications > 0 && (
+                {kommune.bankruptcyCount > 0 && (
                   <span className="text-sm text-gray-600">
-                    {kommune.notifications} nye hendelser
+                    {kommune.bankruptcyCount} registrerte
                   </span>
                 )}
               </TableCell>
@@ -162,21 +160,87 @@ function MunicipalityList({ kommuner }: { kommuner: typeof allKommuner }) {
   );
 }
 
+// SWR fetcher function
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+};
+
 export default function KommunerPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const filteredKommuner = allKommuner.filter(
+
+  // Use SWR for data fetching with caching and revalidation
+  const {
+    data: apiResponse,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR("/api/kommuner", fetcher, {
+    // Refresh data every 5 minutes
+    refreshInterval: 5 * 60 * 1000,
+    // Keep data fresh for 1 minute
+    dedupingInterval: 60 * 1000,
+    // Revalidate on focus
+    revalidateOnFocus: true,
+    // Retry on error
+    errorRetryCount: 3,
+    errorRetryInterval: 5000,
+  });
+
+  // Extract kommuner from API response
+  const kommuner: KommuneData[] = apiResponse?.kommuner || [];
+
+  const filteredKommuner = kommuner.filter(
     (kommune) =>
       kommune.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       kommune.id.includes(searchTerm)
   );
 
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <h1 className="text-3xl font-bold mb-8">Kommuner i Norge</h1>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <Database className="h-5 w-5 text-red-600" />
+              <div>
+                <h3 className="font-semibold text-red-900">
+                  Kunne ikke laste kommunedata
+                </h3>
+                <p className="text-red-800 text-sm">
+                  Systemet er ikke koblet til Postgres database. Konfigurer
+                  database-tilkobling for å vise kommuner.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Kommuner i Norge</h1>
-      
-      <FavoriteKommuner />
-      
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">
+          Kommuner i Norge
+          {isLoading && (
+            <RefreshCw className="inline-block ml-2 h-6 w-6 animate-spin text-gray-400" />
+          )}
+        </h1>
+        <p className="text-gray-600">
+          {apiResponse?.success
+            ? `${apiResponse.count} kommuner`
+            : "Ingen data"}
+        </p>
+      </div>
+
+      <FavoriteKommuner kommuner={kommuner} />
+
       <Card>
         <CardHeader>
           <CardTitle>Alle kommuner</CardTitle>

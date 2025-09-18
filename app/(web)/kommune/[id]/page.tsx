@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Table,
   TableHeader,
   TableRow,
@@ -12,113 +12,51 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import { AlertTriangle, Building2, MapPin, Calendar, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  MapPin,
+  Calendar,
+  TrendingUp,
+  RefreshCw,
+  Database,
+} from "lucide-react";
+import { useKommuneData } from "@/lib/hooks/use-kommune-data";
+import { getKommuneInfo } from "@/lib/data-fetcher";
+import { useState } from "react";
 
-// Sample data - in production this would come from Sanity CMS
-const kommuneData: Record<string, any> = {
-  "4201": {
-    name: "Risør",
-    county: "Agder",
-    population: 6847,
-    bankruptcies: [
-      {
-        id: "1",
-        companyName: "Risør Marina AS",
-        organizationNumber: "987654321",
-        bankruptcyDate: "2024-08-15",
-        address: "Strandgata 12, 4950 Risør",
-        industry: "Marinavirksomhet",
-        hasRecentAddressChange: true,
-        previousAddress: "Havnegata 5, 4950 Risør"
-      },
-      {
-        id: "2",
-        companyName: "Coastal Consulting AS",
-        organizationNumber: "123456789",
-        bankruptcyDate: "2024-07-22",
-        address: "Torvet 8, 4950 Risør",
-        industry: "Konsulentvirksomhet",
-        hasRecentAddressChange: false
-      }
-    ],
-    addressChanges: [
-      {
-        id: "1",
-        companyName: "Risør Seafood AS",
-        organizationNumber: "555666777",
-        changeDate: "2024-09-01",
-        fromAddress: "Industriveien 15, 4950 Risør",
-        toAddress: "Havnegata 22, 4900 Tvedestrand",
-        direction: "out"
-      },
-      {
-        id: "2",
-        companyName: "Nordic Solutions AS",
-        organizationNumber: "888999000",
-        changeDate: "2024-08-20",
-        fromAddress: "Storgata 45, 4900 Tvedestrand",
-        toAddress: "Kirkegata 12, 4950 Risør",
-        direction: "in"
-      }
-    ]
-  },
-  "4203": {
-    name: "Arendal",
-    county: "Agder",
-    population: 46773,
-    bankruptcies: [
-      {
-        id: "3",
-        companyName: "Arendal Transport AS",
-        organizationNumber: "111222333",
-        bankruptcyDate: "2024-09-10",
-        address: "Industriveien 45, 4848 Arendal",
-        industry: "Transport og logistikk",
-        hasRecentAddressChange: true,
-        previousAddress: "Havnegata 12, 4900 Tvedestrand"
-      }
-    ],
-    addressChanges: [
-      {
-        id: "3",
-        companyName: "South Coast Tech AS",
-        organizationNumber: "444555666",
-        changeDate: "2024-08-30",
-        fromAddress: "Teglverksveien 8, 4848 Arendal",
-        toAddress: "Storgata 15, 4612 Kristiansand",
-        direction: "out"
-      }
-    ]
-  }
-};
-
-// Default data for unknown kommuner
-const getKommuneInfo = (id: string) => {
-  return kommuneData[id] || {
-    name: `Kommune ${id}`,
-    county: "Ukjent",
-    population: 0,
-    bankruptcies: [],
-    addressChanges: []
-  };
-};
+// No mock data - system only works with real data from APIs
 
 function AlertCard({ bankruptcy }: { bankruptcy: any }) {
   if (!bankruptcy.hasRecentAddressChange) return null;
-  
+
+  // Get the most recent previous address
+  const previousAddress =
+    bankruptcy.previousAddresses && bankruptcy.previousAddresses.length > 0
+      ? bankruptcy.previousAddresses[bankruptcy.previousAddresses.length - 1]
+      : null;
+
   return (
     <Card className="border-red-200 bg-red-50">
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-red-900">Adressevarsel</h4>
-            <p className="text-red-800 text-sm">
-              <strong>{bankruptcy.companyName}</strong> endret adresse ut av kommunen innen siste år før konkurs.
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-red-900 text-sm mb-1">
+              Adressevarsel
+            </h4>
+            <p className="text-red-800 text-xs leading-tight">
+              <strong>{bankruptcy.companyName}</strong> endret adresse ut av
+              kommunen innen siste år før konkurs.
             </p>
-            <p className="text-red-700 text-xs mt-1">
-              Tidligere adresse: {bankruptcy.previousAddress}
-            </p>
+            {previousAddress && (
+              <p className="text-red-700 text-xs mt-1 leading-tight">
+                Tidligere adresse: {previousAddress.address}
+                {previousAddress.kommune && previousAddress.kommune.name && (
+                  <span className="ml-1">({previousAddress.kommune.name})</span>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </CardContent>
@@ -132,12 +70,21 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          Siste konkurser ({bankruptcies.length})
+          Konkurser ({bankruptcies.length})
         </CardTitle>
       </CardHeader>
       <CardContent>
         {bankruptcies.length === 0 ? (
-          <p className="text-gray-500">Ingen konkurser registrert</p>
+          <div className="text-center py-8">
+            <Database className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="font-medium text-gray-900 mb-2">
+              Ingen konkursdata
+            </h3>
+            <p className="text-gray-500 text-sm">
+              For å vise konkursdata må systemet kobles til norske
+              konkursregistre via API. Klikk "Oppdater data" for å hente data.
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {bankruptcies.map((bankruptcy) => (
@@ -151,7 +98,9 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {new Date(bankruptcy.bankruptcyDate).toLocaleDateString('nb-NO')}
+                      {new Date(bankruptcy.bankruptcyDate).toLocaleDateString(
+                        "nb-NO"
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
@@ -201,15 +150,23 @@ function AddressChangesSection({ addressChanges }: { addressChanges: any[] }) {
                       {change.companyName}
                     </TableCell>
                     <TableCell>
-                      {new Date(change.changeDate).toLocaleDateString('nb-NO')}
+                      {new Date(change.changeDate).toLocaleDateString("nb-NO")}
                     </TableCell>
-                    <TableCell className="text-sm">{change.fromAddress}</TableCell>
-                    <TableCell className="text-sm">{change.toAddress}</TableCell>
+                    <TableCell className="text-sm">
+                      {change.fromAddress}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {change.toAddress}
+                    </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={change.direction === "in" ? "default" : "secondary"}
+                      <Badge
+                        variant={
+                          change.direction === "in" ? "default" : "secondary"
+                        }
                       >
-                        {change.direction === "in" ? "Inn til kommune" : "Ut av kommune"}
+                        {change.direction === "in"
+                          ? "Inn til kommune"
+                          : "Ut av kommune"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -228,25 +185,138 @@ export default function KommunePage({
 }: {
   params: { id: string };
 }) {
+  const {
+    data: bankruptcies,
+    error,
+    isLoading,
+    triggerUpdate,
+  } = useKommuneData(id);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [dataGaps, setDataGaps] = useState<any>(null);
+
+  // Get kommune info - use fallback since bankruptcies don't include kommune info in new structure
   const kommune = getKommuneInfo(id);
-  const hasAlerts = kommune.bankruptcies.some((b: any) => b.hasRecentAddressChange);
+  const hasAlerts = bankruptcies.some((b: any) => b.hasRecentAddressChange);
+
+  const handleUpdateData = async () => {
+    setIsUpdating(true);
+    try {
+      await triggerUpdate();
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const fetchDataGaps = async () => {
+    try {
+      const response = await fetch(`/api/data-gaps/${id}`);
+      const result = await response.json();
+      if (result.success) {
+        setDataGaps(result);
+      }
+    } catch (error) {
+      console.error("Failed to fetch data gaps:", error);
+    }
+  };
+
+  // Fetch data gaps on component mount
+  if (!dataGaps && !isLoading) {
+    fetchDataGaps();
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <div>
+                <h3 className="font-semibold text-red-900">
+                  Ingen data tilgjengelig
+                </h3>
+                <p className="text-red-800 text-sm">
+                  Systemet er ikke koblet til datakilder. For å få tilgang til
+                  konkursdata, konfigurer Postgres database og koble til norske
+                  konkursregistre.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">{kommune.name}</h1>
+          <h1 className="text-3xl font-bold">
+            {kommune.name}
+            {isLoading && (
+              <RefreshCw className="inline-block ml-2 h-6 w-6 animate-spin text-gray-400" />
+            )}
+          </h1>
           <p className="text-gray-600 mt-1">
-            {kommune.county} • {kommune.population.toLocaleString('nb-NO')} innbyggere
+            {kommune.county}
+            {bankruptcies.length > 0 ? (
+              <span className="ml-2">
+                • {bankruptcies.length} konkurser registrert
+              </span>
+            ) : (
+              <span className="ml-2 text-gray-500">
+                • Ingen data tilgjengelig
+              </span>
+            )}
           </p>
         </div>
-        <Link
-          href="/kommuner"
-          className="text-blue-600 hover:text-blue-800 hover:underline"
-        >
-          ← Tilbake til kommuneliste
-        </Link>
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={handleUpdateData}
+            disabled={isUpdating || isLoading}
+            variant="outline"
+            size="sm"
+          >
+            {isUpdating ? (
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Database className="h-4 w-4 mr-2" />
+            )}
+            {isUpdating ? "Oppdaterer..." : "Oppdater data"}
+          </Button>
+          <Link
+            href="/kommuner"
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            ← Tilbake til kommuneliste
+          </Link>
+        </div>
       </div>
+
+      {/* Data Coverage Info */}
+      {dataGaps && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Database className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-blue-900">Datadekning</h3>
+                <p className="text-blue-800 text-sm">
+                  {dataGaps.statistics.coveragePercentage.toFixed(1)}% dekning
+                  siste år
+                  {dataGaps.statistics.totalGaps > 0 && (
+                    <span className="ml-2">
+                      • {dataGaps.statistics.totalGaps} hull i dataene (
+                      {dataGaps.statistics.totalMissingDays} dager mangler)
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {hasAlerts && (
         <Card className="border-amber-200 bg-amber-50">
@@ -254,9 +324,12 @@ export default function KommunePage({
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
               <div>
-                <h3 className="font-semibold text-amber-900">Adressevarsler aktive</h3>
+                <h3 className="font-semibold text-amber-900">
+                  Adressevarsler aktive
+                </h3>
                 <p className="text-amber-800 text-sm">
-                  Det er registrert konkurser med nylige adresseendringer ut av kommunen.
+                  Det er registrert konkurser med nylige adresseendringer ut av
+                  kommunen.
                 </p>
               </div>
             </div>
@@ -276,9 +349,10 @@ export default function KommunePage({
         </CardContent>
       </Card>
 
-      <BankruptciesSection bankruptcies={kommune.bankruptcies} />
-      
-      <AddressChangesSection addressChanges={kommune.addressChanges} />
+      <BankruptciesSection bankruptcies={bankruptcies} />
+
+      {/* Note: Address changes would need to be implemented separately */}
+      <AddressChangesSection addressChanges={[]} />
     </div>
   );
 }

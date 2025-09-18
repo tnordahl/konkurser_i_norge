@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SWRProvider } from "@/components/providers/swr-provider";
+import "@/lib/startup"; // Initialize app services
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="nb">
       <body className={inter.className}>
-        <main className="min-h-screen bg-background">{children}</main>
+        <SWRProvider>
+          <main className="min-h-screen bg-background">{children}</main>
+        </SWRProvider>
       </body>
     </html>
   );

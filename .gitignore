@@ -56,3 +56,5 @@ dist/
 logs
 *.log
 node_modules
+
+/lib/generated/prisma
