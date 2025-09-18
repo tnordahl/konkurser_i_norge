@@ -114,7 +114,7 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
   try {
     // Fetch detailed company information including address history
     const detailUrl = `https://data.brreg.no/enhetsregisteret/api/enheter/${organizationNumber}`;
-    
+
     const response = await fetch(detailUrl, {
       method: "GET",
       headers: {
@@ -124,7 +124,9 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
     });
 
     if (!response.ok) {
-      console.warn(`Could not fetch address history for ${organizationNumber}: ${response.status}`);
+      console.warn(
+        `Could not fetch address history for ${organizationNumber}: ${response.status}`
+      );
       return { hasRecentAddressChange: false, previousAddresses: [] };
     }
 
@@ -144,22 +146,24 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
     // Look for address changes in the data
     // Note: The exact structure depends on the API response format
     if (companyData.registreringsdatoEnhetsregisteret) {
-      const registrationDate = new Date(companyData.registreringsdatoEnhetsregisteret);
-      
+      const registrationDate = new Date(
+        companyData.registreringsdatoEnhetsregisteret
+      );
+
       // If company was registered recently, check if it moved from another address
       if (registrationDate > oneYearAgo) {
         // This could indicate a recent address change
         // In a real implementation, you'd need to check historical records
-        
+
         // For now, we'll use heuristics based on available data
         if (companyData.forretningsadresse && companyData.postadresse) {
           const businessAddr = JSON.stringify(companyData.forretningsadresse);
           const postAddr = JSON.stringify(companyData.postadresse);
-          
+
           // If business and postal addresses differ, might indicate recent move
           if (businessAddr !== postAddr) {
             hasRecentAddressChange = true;
-            
+
             // Create a previous address entry
             let postAddress = "";
             if (companyData.postadresse) {
@@ -178,10 +182,11 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
                 address: postAddress,
                 kommune: {
                   name: companyData.postadresse?.poststed || "Ukjent",
-                  kommuneNumber: companyData.postadresse?.kommunenummer || "0000",
+                  kommuneNumber:
+                    companyData.postadresse?.kommunenummer || "0000",
                 },
-                fromDate: oneYearAgo.toISOString().split('T')[0],
-                toDate: registrationDate.toISOString().split('T')[0],
+                fromDate: oneYearAgo.toISOString().split("T")[0],
+                toDate: registrationDate.toISOString().split("T")[0],
               });
             }
           }
@@ -191,7 +196,10 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
 
     return { hasRecentAddressChange, previousAddresses };
   } catch (error) {
-    console.warn(`Failed to fetch address history for ${organizationNumber}:`, error);
+    console.warn(
+      `Failed to fetch address history for ${organizationNumber}:`,
+      error
+    );
     return { hasRecentAddressChange: false, previousAddresses: [] };
   }
 }
@@ -201,108 +209,168 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
  */
 export async function fetchBankruptcyDataFromExternalAPI(
   kommuneNumber: string,
-  startDate: string,
-  endDate: string
+  startDate?: string,
+  endDate?: string
 ): Promise<Partial<BankruptcyData>[]> {
+  // Default to rolling 1-year window: 1 year ago to today
+  if (!startDate) {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    startDate = oneYearAgo.toISOString().split("T")[0];
+  }
+  if (!endDate) {
+    endDate = new Date().toISOString().split("T")[0]; // Today
+  }
+
   console.log(
-    `🔍 Fetching bankruptcy data for kommune ${kommuneNumber} from ${startDate} to ${endDate}`
+    `🔍 Fetching bankruptcy data for kommune ${kommuneNumber} from ${startDate} to ${endDate} (rolling 1-year window)`
   );
 
   try {
     // Use the correct Brønnøysundregistrene API endpoint
     // Based on https://data.brreg.no/enhetsregisteret/api/dokumentasjon
-    const enhetsregisterUrl = "https://data.brreg.no/enhetsregisteret/api/enheter";
+    const enhetsregisterUrl =
+      "https://data.brreg.no/enhetsregisteret/api/enheter";
 
-    // Search for businesses in the specific kommune
-    const searchParams = new URLSearchParams({
-      kommunenummer: kommuneNumber,
-      size: "1000", // Max results per page
-      page: "0",
-      // Add additional filters if needed
-    });
-
-    const response = await fetch(`${enhetsregisterUrl}?${searchParams}`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "konkurser-i-norge-app/1.0",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `API request failed: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const data = await response.json();
+    // Search for businesses in the specific kommune across multiple pages
     const bankruptcies: Partial<BankruptcyData>[] = [];
+    const pageSize = 500; // Smaller page size for reliability
+    const maxPages = 5; // Limit to avoid overwhelming API
 
-    // Process the API response
-    if (data && data._embedded && data._embedded.enheter) {
-      for (const enhet of data._embedded.enheter) {
-        // Check if this business has bankruptcy information
-        if (enhet.organisasjonsnummer && enhet.navn) {
-          // Look for bankruptcy indicators based on actual API data structure
-          const isBankrupt =
-            // Check organization form for bankruptcy status
-            (enhet.organisasjonsform &&
-             (enhet.organisasjonsform.kode === "KONKURS" ||
-              enhet.organisasjonsform.beskrivelse?.toLowerCase().includes("konkurs"))) ||
-            // Check business name for bankruptcy indicators
-            enhet.navn.toLowerCase().includes("konkursbo") ||
-            enhet.navn.toLowerCase().includes("konkurs") ||
-            // Check if entity is marked as deleted/inactive (potential bankruptcy indicator)
-            enhet.slettedato ||
-            // Check business status
-            (enhet.enhetstype && enhet.enhetstype.toLowerCase().includes("konkurs"));
+    for (let page = 0; page < maxPages; page++) {
+      console.log(
+        `📄 Fetching page ${page + 1}/${maxPages} for kommune ${kommuneNumber}...`
+      );
 
-          if (isBankrupt) {
-            // Extract current address information
-            let address = "";
-            if (enhet.forretningsadresse) {
-              const addr = enhet.forretningsadresse;
-              const addressParts = [];
-              if (addr.adresse && addr.adresse.length > 0) {
-                addressParts.push(addr.adresse.join(" "));
+      const searchParams = new URLSearchParams({
+        kommunenummer: kommuneNumber,
+        size: pageSize.toString(),
+        page: page.toString(),
+      });
+
+      const response = await fetch(`${enhetsregisterUrl}?${searchParams}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "konkurser-i-norge-app/1.0",
+        },
+      });
+
+      if (!response.ok) {
+        console.warn(
+          `Failed to fetch page ${page}: ${response.status} ${response.statusText}`
+        );
+        break;
+      }
+
+      const data = await response.json();
+
+      // If no results on this page, we've reached the end
+      if (!data._embedded?.enheter || data._embedded.enheter.length === 0) {
+        console.log(
+          `No more results on page ${page + 1}, stopping pagination.`
+        );
+        break;
+      }
+
+      // Process the API response for this page
+      if (data && data._embedded && data._embedded.enheter) {
+        for (const enhet of data._embedded.enheter) {
+          // Check if this business has bankruptcy information
+          if (enhet.organisasjonsnummer && enhet.navn) {
+            // Look for bankruptcy indicators based on actual API data structure
+            const isBankrupt =
+              // PRIMARY: Check the direct konkurs field (most reliable)
+              enhet.konkurs === true ||
+              // CRITICAL: Check organization form for KBO (Konkursbo) - this is the main indicator!
+              (enhet.organisasjonsform &&
+                enhet.organisasjonsform.kode === "KBO") ||
+              // Check for konkurs date (another reliable indicator)
+              enhet.konkursdato ||
+              // Check organization form for other bankruptcy statuses
+              (enhet.organisasjonsform &&
+                (enhet.organisasjonsform.kode === "KONKURS" ||
+                  enhet.organisasjonsform.beskrivelse
+                    ?.toLowerCase()
+                    .includes("konkurs"))) ||
+              // Check business name for bankruptcy indicators
+              enhet.navn.toLowerCase().includes("konkursbo") ||
+              enhet.navn.toLowerCase().includes("konkurs");
+
+            // Check if bankruptcy date is within our rolling window
+            // For KBO (konkursbo), use stiftelsesdato as the bankruptcy date
+            const bankruptcyDate =
+              enhet.konkursdato ||
+              (enhet.organisasjonsform?.kode === "KBO"
+                ? enhet.stiftelsesdato
+                : null) ||
+              enhet.slettedato;
+            const isWithinDateRange =
+              !bankruptcyDate ||
+              (bankruptcyDate >= startDate && bankruptcyDate <= endDate);
+
+            if (isBankrupt && isWithinDateRange) {
+              // Extract current address information
+              let address = "";
+              if (enhet.forretningsadresse) {
+                const addr = enhet.forretningsadresse;
+                const addressParts = [];
+                if (addr.adresse && addr.adresse.length > 0) {
+                  addressParts.push(addr.adresse.join(" "));
+                }
+                if (addr.postnummer) addressParts.push(addr.postnummer);
+                if (addr.poststed) addressParts.push(addr.poststed);
+                address = addressParts.join(", ");
               }
-              if (addr.postnummer) addressParts.push(addr.postnummer);
-              if (addr.poststed) addressParts.push(addr.poststed);
-              address = addressParts.join(", ");
-            }
 
-            // **KEY FEATURE: Fetch address history to detect moves out of kommune**
-            console.log(`🔍 Checking address history for ${enhet.navn} (${enhet.organisasjonsnummer})`);
-            const addressHistory = await fetchCompanyAddressHistory(enhet.organisasjonsnummer);
-            
-            // Add small delay to avoid overwhelming the API
-            await new Promise(resolve => setTimeout(resolve, 100));
+              // **KEY FEATURE: Fetch address history to detect moves out of kommune**
+              console.log(
+                `🔍 Checking address history for ${enhet.navn} (${enhet.organisasjonsnummer})`
+              );
+              const addressHistory = await fetchCompanyAddressHistory(
+                enhet.organisasjonsnummer
+              );
 
-            bankruptcies.push({
-              companyName: enhet.navn,
-              organizationNumber: enhet.organisasjonsnummer,
-              bankruptcyDate: enhet.slettedato || enhet.registreringsdatoEnhetsregisteret || startDate,
-              address: address,
-              industry: enhet.naeringskode1?.beskrivelse || "Ukjent bransje",
-              hasRecentAddressChange: addressHistory.hasRecentAddressChange,
-              previousAddresses: addressHistory.previousAddresses,
-            });
+              // Add small delay to avoid overwhelming the API
+              await new Promise((resolve) => setTimeout(resolve, 100));
 
-            if (addressHistory.hasRecentAddressChange) {
-              console.log(`⚠️  ADDRESS ALERT: ${enhet.navn} moved out of kommune before bankruptcy!`);
+              bankruptcies.push({
+                companyName: enhet.navn,
+                organizationNumber: enhet.organisasjonsnummer,
+                bankruptcyDate: bankruptcyDate || startDate,
+                address: address,
+                industry: enhet.naeringskode1?.beskrivelse || "Ukjent bransje",
+                hasRecentAddressChange: addressHistory.hasRecentAddressChange,
+                previousAddresses: addressHistory.previousAddresses,
+              });
+
+              if (addressHistory.hasRecentAddressChange) {
+                console.log(
+                  `⚠️  ADDRESS ALERT: ${enhet.navn} moved out of kommune before bankruptcy!`
+                );
+              }
             }
           }
         }
       }
+
+      // Add delay between pages to be respectful to the API
+      if (page < maxPages - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
     }
 
     console.log(
-      `✅ Found ${bankruptcies.length} potential bankruptcies for kommune ${kommuneNumber}`
+      `✅ Found ${bankruptcies.length} potential bankruptcies for kommune ${kommuneNumber} (searched ${maxPages} pages)`
     );
 
-    const addressChangeCount = bankruptcies.filter(b => b.hasRecentAddressChange).length;
+    const addressChangeCount = bankruptcies.filter(
+      (b) => b.hasRecentAddressChange
+    ).length;
     if (addressChangeCount > 0) {
-      console.log(`🚨 FRAUD ALERT: ${addressChangeCount} companies moved out of kommune before bankruptcy!`);
+      console.log(
+        `🚨 FRAUD ALERT: ${addressChangeCount} companies moved out of kommune before bankruptcy!`
+      );
     }
 
     return bankruptcies;
