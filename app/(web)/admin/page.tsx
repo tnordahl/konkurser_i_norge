@@ -23,7 +23,14 @@ import {
   Trash2,
   Settings,
   Star,
+  Shield,
+  AlertTriangle,
+  TrendingUp,
+  Target,
+  Eye,
+  RefreshCw,
 } from "lucide-react";
+import useSWR from "swr";
 
 // Sample data - in production this would come from a user management system
 const allKommuner = [
@@ -111,6 +118,19 @@ export default function AdminPage() {
     );
   };
 
+  // Fraud Detection Data
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch");
+    return response.json();
+  };
+
+  const { data: nationalFraudData, isLoading: fraudLoading } = useSWR(
+    "/api/address-change-scanner",
+    fetcher,
+    { refreshInterval: 600000 } // Refresh every 10 minutes
+  );
+
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="flex justify-between items-center">
@@ -127,6 +147,120 @@ export default function AdminPage() {
           </Button>
         </div>
       </div>
+
+      {/* National Fraud Monitoring Dashboard */}
+      <Card className="border-red-200 bg-gradient-to-r from-red-50 to-orange-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-800">
+            <Shield className="h-6 w-6" />
+            🚨 Nasjonal Svindelovervåking
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fraudLoading ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Analyserer svindelmønstre på landsbasis...
+            </div>
+          ) : nationalFraudData ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="text-center p-4 border border-red-200 rounded-lg bg-white">
+                <div className="text-3xl font-bold text-red-600">
+                  {nationalFraudData.scan?.fraudCases || 0}
+                </div>
+                <div className="text-sm text-red-700">Bekreftet Svindel</div>
+                <div className="text-xs text-red-600">
+                  Selskaper som flyttet før konkurs
+                </div>
+              </div>
+              <div className="text-center p-4 border border-orange-200 rounded-lg bg-white">
+                <div className="text-3xl font-bold text-orange-600">
+                  {nationalFraudData.scan?.totalAddressChanges || 0}
+                </div>
+                <div className="text-sm text-orange-700">Adresseendringer</div>
+                <div className="text-xs text-orange-600">Totalt overvåket</div>
+              </div>
+              <div className="text-center p-4 border border-yellow-200 rounded-lg bg-white">
+                <div className="text-3xl font-bold text-yellow-600">
+                  {nationalFraudData.scan?.criticalCases || 0}
+                </div>
+                <div className="text-sm text-yellow-700">Kritiske Saker</div>
+                <div className="text-xs text-yellow-600">
+                  Krever umiddelbar oppfølging
+                </div>
+              </div>
+              <div className="text-center p-4 border border-purple-200 rounded-lg bg-white">
+                <div className="text-3xl font-bold text-purple-600">
+                  {nationalFraudData.analysis?.fraudRiskLevel || "LOW"}
+                </div>
+                <div className="text-sm text-purple-700">Risikonivå</div>
+                <div className="text-xs text-purple-600">
+                  Nasjonalt trusselsnivå
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-500">Kunne ikke laste svindeldata</div>
+          )}
+
+          {nationalFraudData?.data?.fraudCases &&
+            nationalFraudData.data.fraudCases.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Topp Svindelsaker (Siste oppdaterte)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {nationalFraudData.data.fraudCases
+                    .slice(0, 4)
+                    .map((fraudCase: any, index: number) => (
+                      <div
+                        key={index}
+                        className="border border-red-200 rounded-lg p-3 bg-white"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-red-900 text-sm">
+                              {fraudCase.companyName}
+                            </h4>
+                            <p className="text-xs text-red-700">
+                              {fraudCase.oldAddress?.kommuneName} →{" "}
+                              {fraudCase.newAddress?.kommuneName}
+                            </p>
+                            <p className="text-xs text-red-600">
+                              Konkurs: {fraudCase.bankruptcyDate} • Org.nr:{" "}
+                              {fraudCase.organizationNumber}
+                            </p>
+                          </div>
+                          <Badge className="bg-red-600 text-white text-xs">
+                            {fraudCase.fraudRiskLevel}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+          <div className="mt-4 pt-4 border-t border-red-200">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-red-700">
+                Systemet overvåker{" "}
+                {nationalFraudData?.scan?.totalAddressChanges || 0}{" "}
+                adresseendringer på landsbasis
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-700"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Se Detaljert Rapport
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Email Settings */}
       <Card>

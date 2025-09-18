@@ -1,75 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { 
-  getSchedulerStatus, 
-  startDailyUpdateScheduler, 
-  stopDailyUpdateScheduler, 
-  triggerManualUpdate 
-} from '@/lib/scheduler'
+import { NextRequest, NextResponse } from "next/server";
+import {
+  getSchedulerStatus,
+  startDailyUpdateScheduler,
+  stopDailyUpdateScheduler,
+  triggerManualUpdate,
+} from "@/lib/scheduler";
 
 export async function GET(request: NextRequest) {
   try {
-    const status = getSchedulerStatus()
-    
+    const status = getSchedulerStatus();
+
     return NextResponse.json({
       success: true,
-      ...status
-    })
+      ...status,
+    });
   } catch (error) {
-    console.error('Error getting scheduler status:', error)
+    console.error("Error getting scheduler status:", error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to get scheduler status'
+        error: "Failed to get scheduler status",
       },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { action } = await request.json()
-    
+    const { action } = await request.json();
+
     switch (action) {
-      case 'start':
-        startDailyUpdateScheduler()
+      case "start":
+        startDailyUpdateScheduler();
         return NextResponse.json({
           success: true,
-          message: 'Scheduler started successfully'
-        })
-      
-      case 'stop':
-        stopDailyUpdateScheduler()
+          message: "Scheduler started successfully",
+        });
+
+      case "stop":
+        stopDailyUpdateScheduler();
         return NextResponse.json({
           success: true,
-          message: 'Scheduler stopped successfully'
-        })
-      
-      case 'trigger':
-        const result = await triggerManualUpdate()
+          message: "Scheduler stopped successfully",
+        });
+
+      case "trigger":
+        const result = await triggerManualUpdate();
         return NextResponse.json({
-          success: result.success,
-          message: result.success ? 'Manual update completed' : 'Manual update failed',
-          ...result
-        })
-      
+          message: result.success
+            ? "Manual update completed"
+            : "Manual update failed",
+          ...result,
+        });
+
       default:
         return NextResponse.json(
           {
             success: false,
-            error: 'Invalid action. Use: start, stop, or trigger'
+            error: "Invalid action. Use: start, stop, or trigger",
           },
           { status: 400 }
-        )
+        );
     }
   } catch (error) {
-    console.error('Error handling scheduler action:', error)
+    console.error("Error handling scheduler action:", error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to handle scheduler action'
+        error: "Failed to handle scheduler action",
       },
       { status: 500 }
-    )
+    );
   }
 }

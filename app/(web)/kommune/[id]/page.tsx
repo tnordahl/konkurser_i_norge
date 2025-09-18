@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableHeader,
@@ -20,10 +21,17 @@ import {
   TrendingUp,
   RefreshCw,
   Database,
+  Shield,
+  Eye,
+  Target,
+  Users,
+  Search,
+  FileText,
 } from "lucide-react";
 import { useKommuneData } from "@/lib/hooks/use-kommune-data";
 import { getKommuneInfo } from "@/lib/data-fetcher";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 // No mock data - system only works with real data from APIs
 
@@ -119,6 +127,507 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
   );
 }
 
+// Detective Investigation Component
+function DetectiveInvestigationSection() {
+  const [orgNumber, setOrgNumber] = useState("");
+  const [investigation, setInvestigation] = useState<any>(null);
+  const [isInvestigating, setIsInvestigating] = useState(false);
+
+  const investigateCompany = async () => {
+    if (!orgNumber.trim()) return;
+
+    setIsInvestigating(true);
+    try {
+      const response = await fetch(
+        `/api/investigate-company/${orgNumber.replace(/\s/g, "")}`
+      );
+      const result = await response.json();
+      setInvestigation(result);
+    } catch (error) {
+      console.error("Investigation failed:", error);
+      setInvestigation({ success: false, error: "Investigation failed" });
+    } finally {
+      setIsInvestigating(false);
+    }
+  };
+
+  const getRiskColor = (level: string) => {
+    switch (level) {
+      case "CRITICAL":
+        return "text-red-600 bg-red-50 border-red-200";
+      case "HIGH":
+        return "text-orange-600 bg-orange-50 border-orange-200";
+      case "MEDIUM":
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
+      default:
+        return "text-green-600 bg-green-50 border-green-200";
+    }
+  };
+
+  return (
+    <Card className="border-blue-200 bg-blue-50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-blue-800">
+          <Search className="h-5 w-5" />
+          🕵️‍♂️ Detektiv-Undersøkelse
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Organisasjonsnummer (f.eks. 989213598)"
+              value={orgNumber}
+              onChange={(e) => setOrgNumber(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={investigateCompany}
+              disabled={isInvestigating}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isInvestigating ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Search className="h-4 w-4 mr-2" />
+              )}
+              Undersøk
+            </Button>
+          </div>
+
+          {investigation && investigation.success && (
+            <div
+              className={`border rounded-lg p-4 ${getRiskColor(investigation.investigation.fraudRiskLevel)}`}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {investigation.company.name}
+                  </h3>
+                  <p className="text-sm">
+                    Org.nr: {investigation.company.organizationNumber}
+                  </p>
+                  <p className="text-sm">{investigation.company.industry}</p>
+                  <p className="text-sm">
+                    Status: {investigation.company.status}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold">
+                    {investigation.investigation.fraudRiskLevel}
+                  </div>
+                  <div className="text-sm">Risikonivå</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <h4 className="font-medium mb-2">📍 Adresser</h4>
+                  <p className="text-sm">
+                    Forretning: {investigation.addresses.business}
+                  </p>
+                  {investigation.addresses.postal && (
+                    <p className="text-sm">
+                      Post: {investigation.addresses.postal}
+                    </p>
+                  )}
+                  <p className="text-sm">
+                    Kommune: {investigation.addresses.businessKommune}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">⚠️ Mistenkelige mønstre</h4>
+                  <div className="space-y-1">
+                    {investigation.investigation.suspiciousPatterns.map(
+                      (pattern: string, index: number) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="text-xs mr-1 mb-1"
+                        >
+                          {pattern.replace(/_/g, " ")}
+                        </Badge>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {investigation.investigation.connections.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Profesjonelle forbindelser
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {investigation.investigation.connections
+                      .slice(0, 4)
+                      .map((conn: any, index: number) => (
+                        <div
+                          key={index}
+                          className="border rounded p-3 bg-white bg-opacity-50"
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <h5 className="font-medium text-sm">{conn.name}</h5>
+                            <Badge variant="outline" className="text-xs">
+                              {conn.type}
+                            </Badge>
+                          </div>
+                          {conn.orgNumber && (
+                            <p className="text-xs">Org.nr: {conn.orgNumber}</p>
+                          )}
+                          {conn.address && (
+                            <p className="text-xs">{conn.address}</p>
+                          )}
+                          {conn.role && (
+                            <p className="text-xs">Rolle: {conn.role}</p>
+                          )}
+                          <p className="text-xs italic mt-1">
+                            {conn.significance}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {investigation.investigation.recommendations.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Anbefalinger
+                  </h4>
+                  <ul className="space-y-1">
+                    {investigation.investigation.recommendations.map(
+                      (rec: string, index: number) => (
+                        <li
+                          key={index}
+                          className="text-sm flex items-start gap-2"
+                        >
+                          <span className="text-xs">•</span>
+                          <span>{rec}</span>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {investigation && !investigation.success && (
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+              <p className="text-red-800">
+                Kunne ikke finne selskap med organisasjonsnummer: {orgNumber}
+              </p>
+            </div>
+          )}
+
+          <div className="text-xs text-blue-600 bg-blue-100 rounded p-2">
+            💡 Tips: Prøv org.nr 989213598 (DET LILLE HOTEL AS) for å se et
+            eksempel på avansert svindelmønster
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Comprehensive Fraud Monitoring Component
+function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch");
+    return response.json();
+  };
+
+  const {
+    data: comprehensiveData,
+    error: comprehensiveError,
+    isLoading: comprehensiveLoading,
+    mutate: refreshComprehensive,
+  } = useSWR(`/api/comprehensive-monitoring/${kommuneNumber}`, fetcher, {
+    refreshInterval: 60000, // Refresh every 1 minute for responsiveness
+    dedupingInterval: 30000, // Cache for 30 seconds
+    revalidateOnFocus: true, // Refresh when user returns to tab
+    revalidateOnReconnect: false, // Don't refresh on network reconnect
+    errorRetryCount: 2, // Fewer retries for faster feedback
+    errorRetryInterval: 2000, // 2 second retry interval
+  });
+
+  const {
+    data: addressScanData,
+    error: addressScanError,
+    isLoading: addressScanLoading,
+    mutate: refreshAddressScan,
+  } = useSWR(`/api/address-change-scanner?kommune=${kommuneNumber}`, fetcher, {
+    refreshInterval: 120000, // Refresh every 2 minutes (heavier operation)
+    dedupingInterval: 60000, // Cache for 1 minute
+    revalidateOnFocus: true, // Refresh when user returns to tab
+    revalidateOnReconnect: false, // Don't refresh on network reconnect
+    errorRetryCount: 2, // Fewer retries for faster feedback
+    errorRetryInterval: 3000, // 3 second retry interval
+  });
+
+  if (comprehensiveLoading || addressScanLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Svindelovervåking
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-gray-500">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Analyserer svindelmønstre...
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (comprehensiveError || addressScanError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Svindelovervåking
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">Kunne ikke laste svindeldata</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const fraudRiskLevel = comprehensiveData?.summary?.fraudRiskLevel || "LOW";
+  const totalFraudAlerts =
+    (comprehensiveData?.summary?.fraudAlerts || 0) +
+    (addressScanData?.scan?.fraudCases || 0);
+  const escapedBankruptcies =
+    comprehensiveData?.monitoring?.escapedBankruptcies?.data || [];
+  const earlyWarnings = comprehensiveData?.monitoring?.earlyWarning?.data || [];
+  const addressChanges = addressScanData?.data?.fraudCases || [];
+
+  const getRiskColor = (level: string) => {
+    switch (level) {
+      case "CRITICAL":
+        return "text-red-600 bg-red-50 border-red-200";
+      case "HIGH":
+        return "text-orange-600 bg-orange-50 border-orange-200";
+      case "MEDIUM":
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
+      default:
+        return "text-green-600 bg-green-50 border-green-200";
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Fraud Risk Overview */}
+      <Card className={getRiskColor(fraudRiskLevel)}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Svindelovervåking - Risikonivå: {fraudRiskLevel}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await Promise.all([
+                  refreshComprehensive(),
+                  refreshAddressScan(),
+                ]);
+              }}
+              disabled={comprehensiveLoading || addressScanLoading}
+              className="text-xs"
+            >
+              {comprehensiveLoading || addressScanLoading ? (
+                <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="h-3 w-3 mr-1" />
+              )}
+              Oppdater
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold">{totalFraudAlerts}</div>
+              <div className="text-sm">Totale svindelvarsel</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">
+                {escapedBankruptcies.length}
+              </div>
+              <div className="text-sm">Rømte konkurser</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{earlyWarnings.length}</div>
+              <div className="text-sm">Tidlige advarsler</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Escaped Bankruptcies */}
+      {escapedBankruptcies.length > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-800">
+              <Target className="h-5 w-5" />
+              🚨 Rømte Konkurser ({escapedBankruptcies.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-700 text-sm mb-4">
+              Selskaper som flyttet UT av kommunen før konkurs - potensielt
+              svindel!
+            </p>
+            <div className="space-y-3">
+              {escapedBankruptcies
+                .slice(0, 5)
+                .map((company: any, index: number) => (
+                  <div
+                    key={index}
+                    className="border border-red-200 rounded-lg p-3 bg-white"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-semibold text-red-900">
+                          {company.companyName}
+                        </h4>
+                        <p className="text-sm text-red-700">
+                          Flyttet fra {company.previousKommune} →{" "}
+                          {company.currentKommune}
+                        </p>
+                        <p className="text-xs text-red-600">
+                          Org.nr: {company.organizationNumber} •{" "}
+                          {company.industry}
+                        </p>
+                      </div>
+                      <Badge className="bg-red-600 text-white">KRITISK</Badge>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Early Warning System */}
+      {earlyWarnings.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-800">
+              <Eye className="h-5 w-5" />
+              ⚠️ Tidlige Advarsler ({earlyWarnings.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-amber-700 text-sm mb-4">
+              Selskaper som nylig flyttet ut - potensielle fremtidige konkurser
+            </p>
+            <div className="space-y-3">
+              {earlyWarnings.slice(0, 3).map((company: any, index: number) => (
+                <div
+                  key={index}
+                  className="border border-amber-200 rounded-lg p-3 bg-white"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-amber-900">
+                        {company.companyName}
+                      </h4>
+                      <p className="text-sm text-amber-700">
+                        {company.industry} • Risiko: {company.riskLevel}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-amber-600 text-amber-700"
+                    >
+                      OVERVÅK
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Address Change Fraud Cases */}
+      {addressChanges.length > 0 && (
+        <Card className="border-purple-200 bg-purple-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-800">
+              <TrendingUp className="h-5 w-5" />
+              🔍 Adresseendring-Svindel ({addressChanges.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-purple-700 text-sm mb-4">
+              Selskaper som endret adresse før konkurs - bekreftet
+              svindelmønster
+            </p>
+            <div className="space-y-3">
+              {addressChanges.slice(0, 3).map((company: any, index: number) => (
+                <div
+                  key={index}
+                  className="border border-purple-200 rounded-lg p-3 bg-white"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-purple-900">
+                        {company.companyName}
+                      </h4>
+                      <p className="text-sm text-purple-700">
+                        {company.oldAddress.kommuneName} →{" "}
+                        {company.newAddress.kommuneName}
+                      </p>
+                      <p className="text-xs text-purple-600">
+                        Konkurs: {company.bankruptcyDate} •{" "}
+                        {company.suspiciousPatterns.join(", ")}
+                      </p>
+                    </div>
+                    <Badge className="bg-purple-600 text-white">SVINDEL</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No Fraud Cases */}
+      {totalFraudAlerts === 0 && (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-800">
+              <Shield className="h-5 w-5" />✅ Ingen Svindelvarsel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-green-700">
+              Ingen mistenkelige adresseendringer eller svindelmønstre oppdaget
+              for denne kommunen. Systemet overvåker kontinuerlig for
+              potensielle trusler.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function AddressChangesSection({ addressChanges }: { addressChanges: any[] }) {
   return (
     <Card>
@@ -198,13 +707,49 @@ export default function KommunePage({
   const kommune = getKommuneInfo(id);
   const hasAlerts = bankruptcies.some((b: any) => b.hasRecentAddressChange);
 
-  const handleUpdateData = async () => {
+  const [gapAnalysis, setGapAnalysis] = useState<any>(null);
+  const [showGapDetails, setShowGapDetails] = useState(false);
+
+  const handleIntelligentUpdate = async () => {
     setIsUpdating(true);
     try {
-      await triggerUpdate();
+      // First, analyze gaps
+      const gapResponse = await fetch(`/api/intelligent-update/${id}`);
+      const gapData = await gapResponse.json();
+      setGapAnalysis(gapData);
+      setShowGapDetails(true);
+    } catch (error) {
+      console.error("Gap analysis failed:", error);
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const executeDataFill = async () => {
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/intelligent-update/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ executeNow: true }),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        // Refresh the page data
+        await triggerUpdate();
+        setShowGapDetails(false);
+        setGapAnalysis(null);
+      }
+    } catch (error) {
+      console.error("Data fill failed:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUpdateData = async () => {
+    await handleIntelligentUpdate();
   };
 
   const fetchDataGaps = async () => {
@@ -294,8 +839,104 @@ export default function KommunePage({
         </div>
       </div>
 
-      {/* Data Coverage Info */}
-      {dataGaps && (
+      {/* Intelligent Gap Analysis */}
+      {showGapDetails && gapAnalysis && (
+        <Card
+          className={`border-2 ${
+            gapAnalysis.dataStatus.priorityLevel === "CRITICAL"
+              ? "border-red-300 bg-red-50"
+              : gapAnalysis.dataStatus.priorityLevel === "HIGH"
+                ? "border-orange-300 bg-orange-50"
+                : gapAnalysis.dataStatus.priorityLevel === "MEDIUM"
+                  ? "border-yellow-300 bg-yellow-50"
+                  : "border-green-300 bg-green-50"
+          }`}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              🧠 Intelligent Dataanalyse -{" "}
+              {gapAnalysis.dataStatus.priorityLevel} Prioritet
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="text-center p-3 border rounded-lg bg-white">
+                <div className="text-2xl font-bold text-blue-600">
+                  {gapAnalysis.dataStatus.completionPercentage.toFixed(1)}%
+                </div>
+                <div className="text-sm">Datakompletthet</div>
+              </div>
+              <div className="text-center p-3 border rounded-lg bg-white">
+                <div className="text-2xl font-bold text-red-600">
+                  {gapAnalysis.dataStatus.daysMissing}
+                </div>
+                <div className="text-sm">Dager mangler</div>
+              </div>
+              <div className="text-center p-3 border rounded-lg bg-white">
+                <div className="text-2xl font-bold text-green-600">
+                  {gapAnalysis.fillingPlan.estimatedDuration}
+                </div>
+                <div className="text-sm">Minutter å fylle</div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="font-medium mb-2">
+                📊 Fyllstrategi:{" "}
+                {gapAnalysis.fillingPlan.strategy.replace(/_/g, " ")}
+              </h4>
+              <p className="text-sm text-gray-600 mb-3">
+                {gapAnalysis.fillingPlan.totalPhases} faser planlagt,{" "}
+                {gapAnalysis.fillingPlan.apiCallsRequired} API-kall nødvendig
+              </p>
+
+              <div className="space-y-2">
+                <h5 className="font-medium text-sm">🎯 Anbefalinger:</h5>
+                <ul className="space-y-1">
+                  {gapAnalysis.recommendations
+                    .slice(0, 4)
+                    .map((rec: string, index: number) => (
+                      <li
+                        key={index}
+                        className="text-sm flex items-start gap-2"
+                      >
+                        <span className="text-xs">•</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={executeDataFill}
+                disabled={isUpdating}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isUpdating ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Database className="h-4 w-4 mr-2" />
+                )}
+                {isUpdating
+                  ? "Fyller data..."
+                  : `Fyll ${gapAnalysis.dataStatus.daysMissing} dager`}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowGapDetails(false)}
+              >
+                Avbryt
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Traditional Data Coverage Info (fallback) */}
+      {!showGapDetails && dataGaps && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
@@ -351,7 +992,13 @@ export default function KommunePage({
 
       <BankruptciesSection bankruptcies={bankruptcies} />
 
-      {/* Note: Address changes would need to be implemented separately */}
+      {/* Detective Investigation Tool */}
+      <DetectiveInvestigationSection />
+
+      {/* Comprehensive Fraud Detection System */}
+      <FraudMonitoringSection kommuneNumber={id} />
+
+      {/* Traditional Address Changes (kept for compatibility) */}
       <AddressChangesSection addressChanges={[]} />
     </div>
   );

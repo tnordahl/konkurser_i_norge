@@ -23,17 +23,17 @@ export function useKommuneData(kommuneNumber: string) {
     kommuneNumber ? `/api/kommune/${kommuneNumber}` : null,
     fetcher,
     {
-      // Refresh data every 5 minutes
-      refreshInterval: 5 * 60 * 1000,
-      // Keep data fresh for 1 minute
-      dedupingInterval: 60 * 1000,
-      // Revalidate on focus
+      // Refresh data every 2 minutes for better responsiveness
+      refreshInterval: 2 * 60 * 1000,
+      // Keep data fresh for 30 seconds
+      dedupingInterval: 30 * 1000,
+      // Revalidate on focus for immediate updates
       revalidateOnFocus: true,
       // Don't revalidate on reconnect to avoid excessive API calls
       revalidateOnReconnect: false,
-      // Retry on error
-      errorRetryCount: 3,
-      errorRetryInterval: 5000,
+      // Fewer retries for faster feedback
+      errorRetryCount: 2,
+      errorRetryInterval: 3000,
     }
   );
 
@@ -84,10 +84,14 @@ export function useLatestBankruptcies(limit: number = 10) {
     `/api/latest-bankruptcies?limit=${limit}`,
     fetcher,
     {
-      // Refresh every 2 minutes for latest data
-      refreshInterval: 2 * 60 * 1000,
-      dedupingInterval: 30 * 1000,
+      // Refresh every 1 minute for latest data
+      refreshInterval: 1 * 60 * 1000,
+      // Cache for 20 seconds for responsiveness
+      dedupingInterval: 20 * 1000,
       revalidateOnFocus: true,
+      revalidateOnReconnect: false,
+      errorRetryCount: 2,
+      errorRetryInterval: 2000,
     }
   );
 
