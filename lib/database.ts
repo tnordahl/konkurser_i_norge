@@ -138,13 +138,17 @@ export async function saveBankruptcyData(
     let savedCount = 0;
     let updatedCount = 0;
 
+    console.log(
+      `💾 Attempting to save ${bankruptcies.length} bankruptcies for kommune ${kommuneNumber}`
+    );
+
     for (const bankruptcy of bankruptcies) {
+      console.log(
+        `   - Processing: ${bankruptcy.companyName} (${bankruptcy.organizationNumber})`
+      );
       const result = await prisma.bankruptcy.upsert({
         where: {
-          organizationNumber_bankruptcyDate: {
-            organizationNumber: bankruptcy.organizationNumber,
-            bankruptcyDate: new Date(bankruptcy.bankruptcyDate),
-          },
+          organizationNumber: bankruptcy.organizationNumber,
         },
         update: {
           companyName: bankruptcy.companyName,
@@ -202,7 +206,7 @@ export async function getDataCoverage(kommuneNumber: string) {
   try {
     const kommune = await prisma.kommune.findUnique({
       where: { kommuneNumber },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (!kommune) {
@@ -210,42 +214,86 @@ export async function getDataCoverage(kommuneNumber: string) {
         coverage: 0,
         totalDays: 365,
         missingDays: 365,
-        dataGaps: [],
+        dataGaps: ["Kommune ikke funnet i databasen"],
       };
     }
 
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const today = new Date();
 
     const bankruptcies = await prisma.bankruptcy.findMany({
       where: {
         kommuneId: kommune.id,
         bankruptcyDate: {
           gte: oneYearAgo,
+          lte: today,
         },
       },
       select: {
         bankruptcyDate: true,
+        companyName: true,
       },
       orderBy: {
-        bankruptcyDate: "asc",
+        bankruptcyDate: "desc",
       },
     });
 
-    // Calculate coverage (simplified - could be more sophisticated)
-    const totalDays = 365;
-    const daysWithData = new Set(
-      bankruptcies.map((b) => b.bankruptcyDate.toISOString().split("T")[0])
-    ).size;
+    // For bankruptcy data, we consider coverage as "data collection completeness"
+    // If we have recent data collection attempts (not just bankruptcy events),
+    // we have good coverage
 
-    const coverage = totalDays > 0 ? (daysWithData / totalDays) * 100 : 0;
-    const missingDays = totalDays - daysWithData;
+    const totalDays = Math.ceil(
+      (today.getTime() - oneYearAgo.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const bankruptcyCount = bankruptcies.length;
+
+    // Coverage logic for bankruptcy monitoring:
+    // - If we have recent bankruptcies (within last 30 days), consider high coverage
+    // - If we have any bankruptcies in the period, consider medium coverage
+    // - If no data at all, low coverage
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentBankruptcies = bankruptcies.filter(
+      (b) => new Date(b.bankruptcyDate) >= thirtyDaysAgo
+    );
+
+    let coverage = 0;
+    let status = "Ingen data samlet";
+
+    if (bankruptcyCount > 0) {
+      if (recentBankruptcies.length > 0) {
+        // Recent data suggests active monitoring
+        coverage = 100;
+        status = `${bankruptcyCount} konkurser registrert - oppdatert datasystem`;
+      } else {
+        // Historical data but no recent updates
+        coverage = 75;
+        status = `${bankruptcyCount} konkurser funnet - kan ha nyere data tilgjengelig`;
+      }
+    } else {
+      // No bankruptcies found - could be good news or missing data
+      coverage = 50;
+      status =
+        "Ingen konkurser funnet - kan være komplett eller manglende data";
+    }
+
+    const dataGaps = coverage < 100 ? [status] : [];
 
     return {
       coverage: Math.round(coverage * 10) / 10,
       totalDays,
-      missingDays,
-      dataGaps: missingDays > 0 ? [`${missingDays} dager mangler`] : [],
+      missingDays:
+        coverage < 100 ? Math.round(((100 - coverage) / 100) * totalDays) : 0,
+      dataGaps,
+      bankruptcyCount,
+      recentBankruptcyCount: recentBankruptcies.length,
+      lastBankruptcyDate:
+        bankruptcies.length > 0
+          ? bankruptcies[0].bankruptcyDate.toISOString().split("T")[0]
+          : null,
     };
   } catch (error) {
     console.error(
@@ -257,6 +305,9 @@ export async function getDataCoverage(kommuneNumber: string) {
       totalDays: 365,
       missingDays: 365,
       dataGaps: ["Kunne ikke beregne dekning"],
+      bankruptcyCount: 0,
+      recentBankruptcyCount: 0,
+      lastBankruptcyDate: null,
     };
   }
 }
