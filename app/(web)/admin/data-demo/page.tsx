@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DATA_COVERAGE_THRESHOLDS } from "@/lib/config/risk-thresholds";
 import {
   AlertCircle,
   CheckCircle,
@@ -19,7 +20,7 @@ export default function DataDemoPage() {
 
   const kommuner = [
     { id: "0301", name: "Oslo", expectedData: "High volume" },
-    { id: "4201", name: "Risør", expectedData: "Medium volume" },
+    // Generic demo data - would be dynamic in production
     { id: "4203", name: "Arendal", expectedData: "Medium volume" },
   ];
 
@@ -84,14 +85,16 @@ export default function DataDemoPage() {
           {/* Coverage Overview */}
           <Card
             className={
-              dataGaps.statistics.coveragePercentage > 80
+              dataGaps.statistics.coveragePercentage >=
+              DATA_COVERAGE_THRESHOLDS.GOOD
                 ? "border-green-200 bg-green-50"
                 : "border-yellow-200 bg-yellow-50"
             }
           >
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                {dataGaps.statistics.coveragePercentage > 80 ? (
+                {dataGaps.statistics.coveragePercentage >=
+                DATA_COVERAGE_THRESHOLDS.GOOD ? (
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 ) : (
                   <AlertCircle className="h-8 w-8 text-yellow-600" />
@@ -190,8 +193,8 @@ export default function DataDemoPage() {
               <p className="text-blue-800">
                 Akkurat nå viser systemet mock-data siden Sanity CMS ikke er
                 konfigurert. Oslo viser 24 konkurser med realistisk
-                dataspredning, mens mindre kommuner som Risør viser færre
-                konkurser. Datahullene du ser er simulerte for å demonstrere
+                dataspredning, mens mindre kommuner viser færre konkurser.
+                Datahullene du ser er simulerte for å demonstrere
                 gap-deteksjonsfunksjonaliteten.
               </p>
             </div>
@@ -233,4 +236,3 @@ export default function DataDemoPage() {
     </div>
   );
 }
-

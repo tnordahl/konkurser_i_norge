@@ -26,7 +26,12 @@ import {
   Target,
   Users,
   Search,
+  History,
+  AlertCircle,
 } from "lucide-react";
+import AddressMovementDetection from "@/components/AddressMovementDetection";
+import SimplifiedFraudDetection from "@/components/SimplifiedFraudDetection";
+import SimpleDataCoverage from "@/components/SimpleDataCoverage";
 import { useKommuneData } from "@/lib/hooks/use-kommune-data";
 import { getKommuneInfo } from "@/lib/data-fetcher";
 import { useState, useEffect } from "react";
@@ -99,7 +104,17 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
                 <AlertCard bankruptcy={bankruptcy} />
                 <div className="border rounded-lg p-4 mt-2">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold">{bankruptcy.companyName}</h4>
+                    <div>
+                      <h4 className="font-semibold">
+                        {bankruptcy.companyName}
+                      </h4>
+                      {bankruptcy.konkursbo && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Konkursbo: {bankruptcy.konkursbo.name} (
+                          {bankruptcy.konkursbo.organizationNumber})
+                        </p>
+                      )}
+                    </div>
                     <Badge variant="destructive">Konkurs</Badge>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
@@ -116,6 +131,21 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
                     <div>Org.nr: {bankruptcy.organizationNumber}</div>
                     <div>Bransje: {bankruptcy.industry}</div>
                   </div>
+                  {bankruptcy.originalCompany && (
+                    <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                      <strong>Opprinnelig selskap:</strong>{" "}
+                      {bankruptcy.originalCompany.name} (
+                      {bankruptcy.originalCompany.organizationNumber})
+                      {bankruptcy.originalCompany.registrationDate && (
+                        <span className="ml-2 text-gray-600">
+                          Registrert:{" "}
+                          {new Date(
+                            bankruptcy.originalCompany.registrationDate
+                          ).toLocaleDateString("nb-NO")}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -140,9 +170,9 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
     isLoading: comprehensiveLoading,
     mutate: refreshComprehensive,
   } = useSWR(`/api/comprehensive-monitoring/${kommuneNumber}`, fetcher, {
-    refreshInterval: 60000, // Refresh every 1 minute for responsiveness
-    dedupingInterval: 30000, // Cache for 30 seconds
-    revalidateOnFocus: true, // Refresh when user returns to tab
+    refreshInterval: 0, // Disabled to prevent multiple scans
+    dedupingInterval: 300000, // Cache for 5 minutes
+    revalidateOnFocus: false, // Don't refresh when user returns to tab
     revalidateOnReconnect: false, // Don't refresh on network reconnect
     errorRetryCount: 2, // Fewer retries for faster feedback
     errorRetryInterval: 2000, // 2 second retry interval
@@ -154,9 +184,9 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
     isLoading: addressScanLoading,
     mutate: refreshAddressScan,
   } = useSWR(`/api/address-change-scanner?kommune=${kommuneNumber}`, fetcher, {
-    refreshInterval: 120000, // Refresh every 2 minutes (heavier operation)
-    dedupingInterval: 60000, // Cache for 1 minute
-    revalidateOnFocus: true, // Refresh when user returns to tab
+    refreshInterval: 0, // Disabled to prevent multiple scans
+    dedupingInterval: 300000, // Cache for 5 minutes
+    revalidateOnFocus: false, // Don't refresh when user returns to tab
     revalidateOnReconnect: false, // Don't refresh on network reconnect
     errorRetryCount: 2, // Fewer retries for faster feedback
     errorRetryInterval: 3000, // 3 second retry interval
@@ -168,13 +198,13 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Svindelovervåking
+            Selskapsanalyse
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 text-gray-500">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            Analyserer svindelmønstre...
+            Analyserer adresseendringer og selskapsmønstre...
           </div>
         </CardContent>
       </Card>
@@ -187,11 +217,11 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Svindelovervåking
+            Selskapsanalyse
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-500">Kunne ikke laste svindeldata</p>
+          <p className="text-gray-500">Kunne ikke laste selskapsdata</p>
         </CardContent>
       </Card>
     );
@@ -227,7 +257,7 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
           <CardTitle className="flex items-center gap-2 justify-between">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Svindelovervåking - Risikonivå: {fraudRiskLevel}
+              Selskapsanalyse - Risikonivå: {fraudRiskLevel}
             </div>
             <Button
               variant="outline"
@@ -254,7 +284,7 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold">{totalFraudAlerts}</div>
-              <div className="text-sm">Totale svindelvarsel</div>
+              <div className="text-sm">Totale risikovarsel</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">
@@ -282,7 +312,7 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
           <CardContent>
             <p className="text-red-700 text-sm mb-4">
               Selskaper som flyttet UT av kommunen før konkurs - potensielt
-              svindel!
+              mistenkelig mønster!
             </p>
             <div className="space-y-3">
               {escapedBankruptcies
@@ -363,13 +393,13 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-purple-800">
               <TrendingUp className="h-5 w-5" />
-              🔍 Adresseendring-Svindel ({addressChanges.length})
+              🔍 Adresseendringer ({addressChanges.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-purple-700 text-sm mb-4">
-              Selskaper som endret adresse før konkurs - bekreftet
-              svindelmønster
+              Selskaper som endret adresse før konkurs - bekreftet mistenkelig
+              mønster
             </p>
             <div className="space-y-3">
               {addressChanges.slice(0, 3).map((company: any, index: number) => (
@@ -391,7 +421,7 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
                         {company.suspiciousPatterns.join(", ")}
                       </p>
                     </div>
-                    <Badge className="bg-purple-600 text-white">SVINDEL</Badge>
+                    <Badge className="bg-purple-600 text-white">RISIKO</Badge>
                   </div>
                 </div>
               ))}
@@ -405,14 +435,14 @@ function FraudMonitoringSection({ kommuneNumber }: { kommuneNumber: string }) {
         <Card className="border-green-200 bg-green-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
-              <Shield className="h-5 w-5" />✅ Ingen Svindelvarsel
+              <Shield className="h-5 w-5" />✅ Ingen Risikovarsel
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-green-700">
-              Ingen mistenkelige adresseendringer eller svindelmønstre oppdaget
-              for denne kommunen. Systemet overvåker kontinuerlig for
-              potensielle trusler.
+              Ingen mistenkelige adresseendringer eller mønstre oppdaget for
+              denne kommunen. Systemet overvåker kontinuerlig for potensielle
+              trusler.
             </p>
           </CardContent>
         </Card>
@@ -591,7 +621,7 @@ export default function KommunePage({
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">
-            {kommune.name}
+            Kommune {id}: {kommune.name}
             {isLoading && (
               <RefreshCw className="inline-block ml-2 h-6 w-6 animate-spin text-gray-400" />
             )}
@@ -632,126 +662,6 @@ export default function KommunePage({
         </div>
       </div>
 
-      {/* Intelligent Gap Analysis */}
-      {showGapDetails && gapAnalysis && (
-        <Card
-          className={`border-2 ${
-            gapAnalysis.dataStatus.priorityLevel === "CRITICAL"
-              ? "border-red-300 bg-red-50"
-              : gapAnalysis.dataStatus.priorityLevel === "HIGH"
-                ? "border-orange-300 bg-orange-50"
-                : gapAnalysis.dataStatus.priorityLevel === "MEDIUM"
-                  ? "border-yellow-300 bg-yellow-50"
-                  : "border-green-300 bg-green-50"
-          }`}
-        >
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              🧠 Intelligent Dataanalyse -{" "}
-              {gapAnalysis.dataStatus.priorityLevel} Prioritet
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="text-center p-3 border rounded-lg bg-white">
-                <div className="text-2xl font-bold text-blue-600">
-                  {gapAnalysis.dataStatus.completionPercentage.toFixed(1)}%
-                </div>
-                <div className="text-sm">Datakompletthet</div>
-              </div>
-              <div className="text-center p-3 border rounded-lg bg-white">
-                <div className="text-2xl font-bold text-red-600">
-                  {gapAnalysis.dataStatus.daysMissing}
-                </div>
-                <div className="text-sm">Dager mangler</div>
-              </div>
-              <div className="text-center p-3 border rounded-lg bg-white">
-                <div className="text-2xl font-bold text-green-600">
-                  {gapAnalysis.fillingPlan.estimatedDuration}
-                </div>
-                <div className="text-sm">Minutter å fylle</div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <h4 className="font-medium mb-2">
-                📊 Fyllstrategi:{" "}
-                {gapAnalysis.fillingPlan.strategy.replace(/_/g, " ")}
-              </h4>
-              <p className="text-sm text-gray-600 mb-3">
-                {gapAnalysis.fillingPlan.totalPhases} faser planlagt,{" "}
-                {gapAnalysis.fillingPlan.apiCallsRequired} API-kall nødvendig
-              </p>
-
-              <div className="space-y-2">
-                <h5 className="font-medium text-sm">🎯 Anbefalinger:</h5>
-                <ul className="space-y-1">
-                  {gapAnalysis.recommendations
-                    .slice(0, 4)
-                    .map((rec: string, index: number) => (
-                      <li
-                        key={index}
-                        className="text-sm flex items-start gap-2"
-                      >
-                        <span className="text-xs">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                onClick={executeDataFill}
-                disabled={isUpdating}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isUpdating ? (
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Database className="h-4 w-4 mr-2" />
-                )}
-                {isUpdating
-                  ? "Fyller data..."
-                  : `Fyll ${gapAnalysis.dataStatus.daysMissing} dager`}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowGapDetails(false)}
-              >
-                Avbryt
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Traditional Data Coverage Info (fallback) */}
-      {!showGapDetails && dataGaps && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <Database className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-blue-900">Datadekning</h3>
-                <p className="text-blue-800 text-sm">
-                  {dataGaps.statistics.coveragePercentage.toFixed(1)}% dekning
-                  siste år
-                  {dataGaps.statistics.totalGaps > 0 && (
-                    <span className="ml-2">
-                      • {dataGaps.statistics.totalGaps} hull i dataene (
-                      {dataGaps.statistics.totalMissingDays} dager mangler)
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {hasAlerts && (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="pt-6">
@@ -771,6 +681,27 @@ export default function KommunePage({
         </Card>
       )}
 
+      {/* Advanced Address Movement Detection - Moved to top */}
+      <AddressMovementDetection
+        kommuneNumber={id}
+        kommuneName={kommune?.name || `Kommune ${id}`}
+      />
+
+      <BankruptciesSection bankruptcies={bankruptcies} />
+
+      {/* Simple Data Coverage */}
+      <SimpleDataCoverage
+        kommuneNumber={id}
+        kommuneName={kommune?.name || `Kommune ${id}`}
+      />
+
+      {/* Simplified Fraud Detection */}
+      <SimplifiedFraudDetection
+        kommuneNumber={id}
+        kommuneName={kommune?.name || `Kommune ${id}`}
+      />
+
+      {/* Abonnér på varsler - Moved to bottom */}
       <Card>
         <CardHeader>
           <CardTitle>Abonnér på varsler</CardTitle>
@@ -782,14 +713,297 @@ export default function KommunePage({
           </div>
         </CardContent>
       </Card>
-
-      <BankruptciesSection bankruptcies={bankruptcies} />
-
-      {/* Comprehensive Fraud Detection System */}
-      <FraudMonitoringSection kommuneNumber={id} />
-
-      {/* Traditional Address Changes (kept for compatibility) */}
-      <AddressChangesSection addressChanges={[]} />
     </div>
+  );
+}
+
+// Historical Company Connections Component
+function HistoricalConnectionsSection({
+  kommuneNumber,
+}: {
+  kommuneNumber: string;
+}) {
+  const fetcher = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch");
+    return response.json();
+  };
+
+  const {
+    data: connectionsData,
+    error: connectionsError,
+    isLoading: connectionsLoading,
+    mutate: refreshConnections,
+  } = useSWR(`/api/smart-cache/${kommuneNumber}`, fetcher, {
+    refreshInterval: 300000, // Refresh every 5 minutes
+    dedupingInterval: 60000, // Cache for 1 minute
+    revalidateOnFocus: false,
+    errorRetryCount: 2,
+    errorRetryInterval: 5000,
+  });
+
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const updateCompanies = async () => {
+    setIsUpdating(true);
+    try {
+      // For now, just refresh the existing data
+      // In the future, this will trigger the comprehensive company scan
+      await refreshConnections();
+
+      // Optionally trigger a bankruptcy data refresh
+      const response = await fetch(`/api/intelligent-update/${kommuneNumber}`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        await refreshConnections();
+      }
+    } catch (error) {
+      console.error("Failed to update companies:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            <CardTitle>Historiske Tilknytninger</CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={updateCompanies}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              {isUpdating ? "Oppdaterer..." : "Oppdater selskaper"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshConnections()}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Oppdater
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {connectionsLoading ? (
+          <div className="flex items-center gap-2 text-gray-500">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Analyserer historiske tilknytninger...
+          </div>
+        ) : connectionsError ? (
+          <div className="text-red-600">
+            Feil ved henting av historiske tilknytninger:{" "}
+            {connectionsError.message}
+          </div>
+        ) : connectionsData?.data ? (
+          <div className="space-y-6">
+            {/* Statistics Overview */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {connectionsData.data.statistics.totalConnections || 0}
+                </div>
+                <div className="text-sm text-blue-700">
+                  Historiske tilknytninger
+                </div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {connectionsData.data.statistics.newFindings || 0}
+                </div>
+                <div className="text-sm text-green-700">Nye funn</div>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {connectionsData.data.scanType === "initial"
+                    ? "Første"
+                    : "Oppdatering"}
+                </div>
+                <div className="text-sm text-purple-700">Scan type</div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <div className="text-2xl font-bold text-gray-600">
+                  {connectionsData.data.statistics.lastScanDate
+                    ? new Date(
+                        connectionsData.data.statistics.lastScanDate
+                      ).toLocaleDateString("nb-NO")
+                    : "Aldri"}
+                </div>
+                <div className="text-sm text-gray-700">Sist scannet</div>
+              </div>
+            </div>
+
+            {/* Alert Messages */}
+            {connectionsData.data.alerts &&
+              connectionsData.data.alerts.length > 0 && (
+                <div className="space-y-2">
+                  {connectionsData.data.alerts.map(
+                    (alert: string, index: number) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg flex items-start gap-2 ${
+                          alert.includes("🚨 CRITICAL")
+                            ? "bg-red-100 border border-red-300"
+                            : alert.includes("🔴")
+                              ? "bg-red-50 border border-red-200"
+                              : alert.includes("📍")
+                                ? "bg-yellow-50 border border-yellow-200"
+                                : "bg-blue-50 border border-blue-200"
+                        }`}
+                      >
+                        <AlertCircle
+                          className={`h-4 w-4 mt-0.5 ${
+                            alert.includes("🚨 CRITICAL")
+                              ? "text-red-600"
+                              : alert.includes("🔴")
+                                ? "text-red-500"
+                                : alert.includes("📍")
+                                  ? "text-yellow-500"
+                                  : "text-blue-500"
+                          }`}
+                        />
+                        <span className="text-sm">{alert}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+            {/* Historical Connections - DETECTION RESULTS */}
+            {connectionsData.data.data.historicalConnections &&
+              connectionsData.data.data.historicalConnections.length > 0 && (
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
+                  <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    🔍 HISTORISKE SELSKAPSTILKNYTNINGER
+                  </h3>
+                  <div className="space-y-3">
+                    {connectionsData.data.data.historicalConnections
+                      .slice(0, 10)
+                      .map((company: any) => (
+                        <div
+                          key={company.id || company.organizationNumber}
+                          className="bg-white p-3 rounded border border-blue-200"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-semibold text-blue-900">
+                                {company.name}
+                              </h4>
+                              <p className="text-sm text-blue-700">
+                                Org.nr: {company.organizationNumber}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Badge
+                                variant="outline"
+                                className={`${
+                                  company.connection?.confidence === "HIGH"
+                                    ? "border-red-300 text-red-700 bg-red-50"
+                                    : company.connection?.confidence ===
+                                        "MEDIUM"
+                                      ? "border-yellow-300 text-yellow-700 bg-yellow-50"
+                                      : "border-blue-300 text-blue-700 bg-blue-50"
+                                }`}
+                              >
+                                {company.connection?.confidence || "UNKNOWN"}{" "}
+                                Confidence
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="border-gray-300 text-gray-700"
+                              >
+                                Risk: {company.riskScore || 0}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <p>
+                              Nåværende adresse:{" "}
+                              {company.currentAddress || "Ukjent"}
+                            </p>
+                            <p>
+                              Tilknytning:{" "}
+                              {company.connection?.type || "Ukjent"}
+                            </p>
+                            <p>
+                              Oppdaget:{" "}
+                              {company.connection?.discoveredAt
+                                ? new Date(
+                                    company.connection.discoveredAt
+                                  ).toLocaleDateString("nb-NO")
+                                : "Ukjent dato"}
+                            </p>
+                          </div>
+                          {company.connection?.evidence && (
+                            <div className="mt-2">
+                              <div className="text-xs bg-blue-100 p-2 rounded">
+                                <strong>Bevis:</strong>{" "}
+                                {company.connection.evidence}
+                              </div>
+                            </div>
+                          )}
+                          {company.riskAlerts &&
+                            company.riskAlerts.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {company.riskAlerts.map((alert: any) => (
+                                  <div
+                                    key={alert.id}
+                                    className="text-xs bg-yellow-100 p-2 rounded"
+                                  >
+                                    <strong>{alert.title}:</strong>{" "}
+                                    {alert.description}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Summary Information */}
+            {connectionsData.data.statistics.totalConnections === 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  📊 Scan resultat
+                </h3>
+                <p className="text-sm text-gray-700">
+                  {connectionsData.data.scanType === "initial"
+                    ? `Første scanning av kommune ${connectionsData.data.kommuneNumber} fullført. Ingen historiske tilknytninger funnet i denne omgangen.`
+                    : `Inkrementell scanning fullført. Ingen nye tilknytninger siden forrige scanning.`}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Neste anbefalt scanning:{" "}
+                  {new Date(
+                    connectionsData.data.statistics.nextScanRecommended
+                  ).toLocaleDateString("nb-NO")}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-gray-500">
+            Ingen historiske tilknytninger funnet
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

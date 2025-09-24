@@ -38,32 +38,8 @@ async function findEscapedBankruptcies(kommuneNumber: string) {
     const data = await response.json();
     const escapedBankruptcies = [];
 
-    // SPECIAL CASE: Add known escaped companies for Risør
-    if (kommuneNumber === "4201") {
-      escapedBankruptcies.push({
-        companyName: "DET LILLE HOTEL AS",
-        organizationNumber: "989213598",
-        bankruptcyDate: "N/A - High risk, not bankrupt yet",
-        currentAddress: "Rundtjernveien 52B, 0672 OSLO",
-        previousKommune: "Risør",
-        currentKommune: "Oslo",
-        connectionType: "PROFESSIONAL_SERVICES + LAWYER_BOARD",
-        riskLevel: "CRITICAL",
-        fraudType: "ESCAPED_BEFORE_TROUBLE",
-        alertLevel: "CRITICAL",
-        escapeDate: "2024",
-        fraudIndicators: [
-          "Moved to Oslo but keeps Risør accountant (RISØR REGNSKAP AS)",
-          "Board chairman Rune Skomakerstuen is a lawyer",
-          "High-cash hotel business - perfect for fraud",
-          "Suspicious timing of address change",
-        ],
-      });
-
-      console.log(
-        "🚨 ADDED KNOWN ESCAPED COMPANY: DET LILLE HOTEL AS from Risør"
-      );
-    }
+    // Generic escaped company detection - no hardcoded cases
+    // This will be populated by the generic fraud detection system
 
     if (data?._embedded?.enheter) {
       for (const enhet of data._embedded.enheter) {
@@ -263,34 +239,16 @@ async function findRecentlyMovedCompanies(kommuneNumber: string) {
 
 // Helper functions
 function getKommuneName(kommuneNumber: string): string {
-  const kommuneMap: Record<string, string> = {
-    "4201": "Risør",
-    "4213": "Tvedestrand",
-    "4211": "Gjerstad",
-    "0301": "Oslo",
-  };
-  return kommuneMap[kommuneNumber] || "Ukjent";
+  // Generic kommune name lookup - would use external API in production
+  // TODO: Implement dynamic kommune name lookup from SSB or other official source
+  return `Kommune ${kommuneNumber}`;
 }
 
 function getKommunePostalCodes(kommuneNumber: string): string[] {
-  const postalCodeMap: Record<string, string[]> = {
-    "4201": ["4950", "4952"], // Risør
-    "4213": ["4900"], // Tvedestrand
-    "4211": ["4885"], // Gjerstad
-    "0301": [
-      "0001",
-      "0002",
-      "0003",
-      "0004",
-      "0005",
-      "0006",
-      "0007",
-      "0008",
-      "0009",
-      "0010",
-    ], // Oslo (partial)
-  };
-  return postalCodeMap[kommuneNumber] || [];
+  // Generic postal code lookup - would use external API in production
+  // TODO: Implement dynamic postal code lookup from official postal service
+  // For now, return empty array and rely on kommunenummer parameter in API calls
+  return [];
 }
 
 function formatAddress(addr: any): string {

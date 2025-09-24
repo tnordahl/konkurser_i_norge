@@ -36,7 +36,7 @@ import useSWR from "swr";
 const allKommuner = [
   { id: "0301", name: "Oslo", county: "Oslo" },
   { id: "1103", name: "Stavanger", county: "Rogaland" },
-  { id: "4201", name: "Risør", county: "Agder" },
+  // Generic demo data - would be dynamic in production
   { id: "4203", name: "Arendal", county: "Agder" },
   { id: "4204", name: "Kristiansand", county: "Agder" },
   { id: "4205", name: "Gjerstad", county: "Agder" },
@@ -66,22 +66,10 @@ interface FollowedKommune {
 }
 
 export default function AdminPage() {
-  const [followedKommuner, setFollowedKommuner] = useState<FollowedKommune[]>([
-    {
-      id: "4201",
-      name: "Risør",
-      county: "Agder",
-      notifications: { email: true, push: true, sms: false },
-      dateAdded: "2024-09-01",
-    },
-    {
-      id: "4203",
-      name: "Arendal",
-      county: "Agder",
-      notifications: { email: true, push: false, sms: true },
-      dateAdded: "2024-09-05",
-    },
-  ]);
+  // Generic demo data - would load from user preferences in production
+  const [followedKommuner, setFollowedKommuner] = useState<FollowedKommune[]>(
+    []
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const [emailSettings, setEmailSettings] = useState({

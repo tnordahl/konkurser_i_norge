@@ -119,7 +119,7 @@ export default function GlobalDetectivePage() {
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-gray-900">
-          🕵️‍♂️ Global Detektiv-Undersøkelse
+          🔍 Global Selskapsanalyse
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Dypere undersøkelse av selskap og nettverk ved organisasjonsnummer.
@@ -139,7 +139,7 @@ export default function GlobalDetectivePage() {
           <div className="flex gap-2">
             <Input
               type="text"
-              placeholder="Organisasjonsnummer (f.eks. 989213598)"
+              placeholder="Organisasjonsnummer (f.eks. 123456789)"
               value={orgNumber}
               onChange={(e) => setOrgNumber(e.target.value)}
               className="flex-1 text-lg"

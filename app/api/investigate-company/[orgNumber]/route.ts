@@ -11,7 +11,7 @@ export async function GET(
 
     // Fetch detailed company information
     const enhetsregisterUrl = `https://data.brreg.no/enhetsregisteret/api/enheter/${orgNumber}`;
-    
+
     const response = await fetch(enhetsregisterUrl, {
       method: "GET",
       headers: {
@@ -72,7 +72,7 @@ async function performDetectiveAnalysis(companyData: any) {
   // Pattern 1: Address Mismatch Analysis
   const businessAddr = companyData.forretningsadresse;
   const postAddr = companyData.postadresse;
-  
+
   const businessKommune = businessAddr?.kommunenummer;
   const postKommune = postAddr?.kommunenummer;
 
@@ -96,97 +96,66 @@ async function performDetectiveAnalysis(companyData: any) {
   // Pattern 3: High-Risk Industry Analysis
   const industryCode = companyData.naeringskode1?.kode;
   const highRiskIndustries = ["55.100", "47.110", "68.100", "70.220"]; // Hotels, retail, real estate, consulting
-  
+
   if (highRiskIndustries.includes(industryCode)) {
     suspiciousPatterns.push("HIGH_RISK_INDUSTRY");
   }
 
-  // Pattern 4: Specific Case Analysis for DET LILLE HOTEL AS
-  if (companyData.organisasjonsnummer === "989213598") {
-    suspiciousPatterns.push("KNOWN_RISØR_CONNECTION");
-    suspiciousPatterns.push("OSLO_MIGRATION_PATTERN");
-    suspiciousPatterns.push("AGDER_SERVICE_NETWORK");
-    suspiciousPatterns.push("LAWYER_BOARD_CONTROL");
-    suspiciousPatterns.push("LEGAL_NETWORK_MANIPULATION");
-    suspiciousPatterns.push("HISTORICAL_ADDRESS_CHANGE");
-    fraudRiskLevel = "CRITICAL"; // Upgraded from HIGH due to lawyer connection
+  // Pattern 4: Generic cross-kommune professional service analysis
+  if (businessKommune && postKommune && businessKommune !== postKommune) {
+    suspiciousPatterns.push("CROSS_KOMMUNE_ADDRESSES");
 
-    connections.push({
-      type: "ACCOUNTANT",
-      name: "RISØR REGNSKAP AS",
-      orgNumber: "923185534",
-      address: "Prestegata 7, 4950 RISØR",
-      significance: "Maintains Risør-based accounting despite Oslo operations",
-    });
+    const addressAnalysis = {
+      type: "ADDRESS_ANALYSIS",
+      significance: `Business in ${businessKommune}, postal in ${postKommune} - potential professional service network`,
+      riskLevel: "MEDIUM",
+    };
+    connections.push(addressAnalysis);
 
-    connections.push({
-      type: "AUDITOR", 
-      name: "REVISJON SØR AS",
-      orgNumber: "943708428",
-      address: "Henrik Wergelands gate 27, 4612 KRISTIANSAND S",
-      significance: "Southern Norway auditor network",
-    });
-
-    connections.push({
-      type: "SUBSIDIARY",
-      name: "DET LILLE HOTEL AS (underenhet)",
-      orgNumber: "999475965",
-      significance: "Complex corporate structure with multiple entities",
-    });
-
-    connections.push({
-      type: "KEY_PERSON",
-      name: "Bernt Walther Bertelsen",
-      role: "CEO + Board Member",
-      birthYear: "1965",
-      significance: "Dual roles - potential control concentration",
-    });
-
-    connections.push({
-      type: "KEY_PERSON", 
-      name: "Rune Skomakerstuen",
-      role: "Board Chairman + LAWYER",
-      birthYear: "1969",
-      significance: "🚨 CRITICAL: Board Chairman who is also a lawyer - legal network control",
-      riskLevel: "CRITICAL"
-    });
-
-    connections.push({
-      type: "LEGAL_NETWORK",
-      name: "Rune Skomakerstuen (Lawyer)",
-      role: "Legal Advisor + Board Control",
-      significance: "⚖️ Dual legal/corporate control creates insider advantage for fraud",
-      riskLevel: "CRITICAL"
-    });
+    if (fraudRiskLevel === "LOW") fraudRiskLevel = "MEDIUM";
   }
 
-  // Pattern 5: Oslo Migration from Agder Region
-  if (businessKommune === "0301" && (postKommune?.startsWith("42") || postKommune?.startsWith("38"))) {
-    suspiciousPatterns.push("AGDER_TO_OSLO_MIGRATION");
-    fraudRiskLevel = "HIGH";
+  // Pattern 5: Generic major city migration analysis
+  const majorCities = ["0301", "1103", "4601"]; // Oslo, Stavanger, Bergen
+  const isMajorCityMove =
+    majorCities.includes(businessKommune || "") &&
+    postKommune &&
+    !majorCities.includes(postKommune);
+
+  if (isMajorCityMove) {
+    suspiciousPatterns.push("MAJOR_CITY_MIGRATION");
+    if (fraudRiskLevel === "LOW") fraudRiskLevel = "MEDIUM";
   }
 
   const investigation = {
     fraudRiskLevel,
     suspiciousPatterns,
     connections,
-    recommendations: generateRecommendations(suspiciousPatterns, fraudRiskLevel),
+    recommendations: generateRecommendations(
+      suspiciousPatterns,
+      fraudRiskLevel
+    ),
     addressChangeAnalysis: {
       hasAddressMismatch: businessKommune !== postKommune,
       possibleMigration: businessKommune === "0301" && postKommune !== "0301",
       crossKommunePattern: businessKommune !== postKommune,
     },
     networkAnalysis: {
-      professionalServices: connections.filter(c => c.type === "ACCOUNTANT" || c.type === "AUDITOR"),
-      keyPersons: connections.filter(c => c.type === "KEY_PERSON"),
-      corporateStructure: connections.filter(c => c.type === "SUBSIDIARY"),
+      professionalServices: connections.filter(
+        (c) => c.type === "ACCOUNTANT" || c.type === "AUDITOR"
+      ),
+      keyPersons: connections.filter((c) => c.type === "KEY_PERSON"),
+      corporateStructure: connections.filter((c) => c.type === "SUBSIDIARY"),
     },
   };
 
   return investigation;
 }
 
-function generateRecommendations(patterns: string[], riskLevel: string): string[] {
+function generateRecommendations(
+  patterns: string[],
+  riskLevel: string
+): string[] {
   const recommendations = [];
 
   if (riskLevel === "HIGH" || riskLevel === "CRITICAL") {
@@ -201,13 +170,17 @@ function generateRecommendations(patterns: string[], riskLevel: string): string[
   }
 
   if (patterns.includes("AGDER_TO_OSLO_MIGRATION")) {
-    recommendations.push("🚚 Investigate timing of Oslo move vs business events");
+    recommendations.push(
+      "🚚 Investigate timing of Oslo move vs business events"
+    );
     recommendations.push("💼 Check if Agder operations continued after move");
   }
 
   if (patterns.includes("HIGH_RISK_INDUSTRY")) {
     recommendations.push("💰 Monitor cash flow patterns closely");
-    recommendations.push("📋 Verify business activity matches registered purpose");
+    recommendations.push(
+      "📋 Verify business activity matches registered purpose"
+    );
   }
 
   return recommendations;

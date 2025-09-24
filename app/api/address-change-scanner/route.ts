@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { delay } from "@/lib/config/api-delays";
+import { dateUtils } from "@/lib/config/date-utils";
+import { PAGINATION, LOCATION } from "@/lib/config/constants";
 
 /**
  * REVERSE FRAUD DETECTION APPROACH:
@@ -40,12 +43,12 @@ async function scanForAddressChanges(): Promise<AddressChangeRecord[]> {
       "https://data.brreg.no/enhetsregisteret/api/enheter";
 
     // Scan fewer pages for faster response (optimize for speed)
-    const maxPages = 2; // Reduced from 5 to 2 for faster scanning
-    for (let page = 0; page < maxPages; page++) {
+    const maxPages = PAGINATION.MAX_PAGES_QUICK_SCAN; // Using standardized constant for faster scanning
+    for (let page = PAGINATION.FIRST_PAGE; page < maxPages; page++) {
       console.log(`📄 Scanning page ${page + 1}/${maxPages}...`);
 
       const searchParams = new URLSearchParams({
-        size: "500", // Reduced from 1000 to 500 for faster processing
+        size: PAGINATION.STANDARD_PAGE_SIZE.toString(), // Using standardized page size for faster processing
         page: page.toString(),
       });
 
@@ -106,8 +109,7 @@ async function scanForAddressChanges(): Promise<AddressChangeRecord[]> {
                 const regDate = new Date(
                   enhet.registreringsdatoEnhetsregisteret
                 );
-                const sixMonthsAgo = new Date();
-                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                const sixMonthsAgo = dateUtils.monthsAgo(6);
 
                 if (regDate > sixMonthsAgo) {
                   suspiciousPatterns.push("RECENT_REGISTRATION");
@@ -128,15 +130,18 @@ async function scanForAddressChanges(): Promise<AddressChangeRecord[]> {
                 companyName: enhet.navn,
                 oldAddress: {
                   address: formatAddress(postAddr),
-                  kommuneNumber: postKommune || "0000",
-                  kommuneName: postAddr.poststed || "Ukjent",
-                  postalCode: postPostal || "0000",
+                  kommuneNumber: postKommune || LOCATION.UNKNOWN_KOMMUNE_CODE,
+                  kommuneName:
+                    postAddr.poststed || LOCATION.UNKNOWN_KOMMUNE_NAME,
+                  postalCode: postPostal || LOCATION.UNKNOWN_POSTAL_CODE,
                 },
                 newAddress: {
                   address: formatAddress(businessAddr),
-                  kommuneNumber: businessKommune || "0000",
-                  kommuneName: businessAddr.poststed || "Ukjent",
-                  postalCode: businessPostal || "0000",
+                  kommuneNumber:
+                    businessKommune || LOCATION.UNKNOWN_KOMMUNE_CODE,
+                  kommuneName:
+                    businessAddr.poststed || LOCATION.UNKNOWN_KOMMUNE_NAME,
+                  postalCode: businessPostal || LOCATION.UNKNOWN_POSTAL_CODE,
                 },
                 changeDate: enhet.registreringsdatoEnhetsregisteret || "Ukjent",
                 isBankrupt,
@@ -156,12 +161,12 @@ async function scanForAddressChanges(): Promise<AddressChangeRecord[]> {
           }
 
           // Minimal delay to avoid overwhelming API (reduced for speed)
-          await new Promise((resolve) => setTimeout(resolve, 5));
+          await delay.quickProcessing();
         }
       }
 
-      // Shorter delay between pages for faster scanning
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Shorter delay between pages for faster scanning using standardized delay
+      await delay.betweenBronnøysundCalls();
     }
 
     console.log(
@@ -215,50 +220,53 @@ export async function GET(request: NextRequest) {
       );
     }
 
-  // GENERIC DETECTION: Add escaped companies using generic algorithm
-  if (targetKommune === "4201" || !targetKommune) {
-    try {
-      const { detectEscapedCompanies } = await import("@/lib/generic-fraud-detector");
-      const escapedPatterns = await detectEscapedCompanies("4201");
-      
-      for (const pattern of escapedPatterns) {
-        const addressChangeRecord: AddressChangeRecord = {
-          companyName: pattern.companyName,
-          organizationNumber: pattern.organizationNumber,
-          oldAddress: {
-            address: pattern.suspectedOriginKommune.kommuneName + " (historical)",
-            kommuneNumber: pattern.suspectedOriginKommune.kommuneNumber,
-            kommuneName: pattern.suspectedOriginKommune.kommuneName,
-            postalCode: "UNKNOWN",
-          },
-          newAddress: {
-            address: pattern.currentAddress.address,
-            kommuneNumber: pattern.currentAddress.kommuneNumber,
-            kommuneName: pattern.currentAddress.kommuneName,
-            postalCode: "UNKNOWN",
-          },
-          changeDate: "2024-01-01", // Generic date - would be improved with real data
-          isBankrupt: false, // Most are not bankrupt yet, just high risk
-          fraudRiskLevel: pattern.riskLevel,
-          suspiciousPatterns: pattern.fraudIndicators,
-          bankruptcyDate: null,
-        };
-
-        // Only add if not already in the list
-        const alreadyExists = filteredChanges.some(
-          (ac) => ac.companyName === pattern.companyName
+    // GENERIC DETECTION: Add escaped companies using generic algorithm
+    if (targetKommune) {
+      try {
+        const { detectEscapedCompanies } = await import(
+          "@/lib/generic-fraud-detector"
         );
-        if (!alreadyExists) {
-          filteredChanges.push(addressChangeRecord);
-          console.log(
-            `🚨 GENERIC DETECTION: Added ${pattern.companyName} (${pattern.riskLevel} risk)`
+        const escapedPatterns = await detectEscapedCompanies(targetKommune);
+
+        for (const pattern of escapedPatterns) {
+          const addressChangeRecord: AddressChangeRecord = {
+            companyName: pattern.companyName,
+            organizationNumber: pattern.organizationNumber,
+            oldAddress: {
+              address:
+                pattern.suspectedOriginKommune.kommuneName + " (historical)",
+              kommuneNumber: pattern.suspectedOriginKommune.kommuneNumber,
+              kommuneName: pattern.suspectedOriginKommune.kommuneName,
+              postalCode: "UNKNOWN",
+            },
+            newAddress: {
+              address: pattern.currentAddress.address,
+              kommuneNumber: pattern.currentAddress.kommuneNumber,
+              kommuneName: pattern.currentAddress.kommuneName,
+              postalCode: "UNKNOWN",
+            },
+            changeDate: "2024-01-01", // Generic date - would be improved with real data
+            isBankrupt: false, // Most are not bankrupt yet, just high risk
+            fraudRiskLevel: pattern.riskLevel,
+            suspiciousPatterns: pattern.fraudIndicators,
+            bankruptcyDate: null,
+          };
+
+          // Only add if not already in the list
+          const alreadyExists = filteredChanges.some(
+            (ac) => ac.companyName === pattern.companyName
           );
+          if (!alreadyExists) {
+            filteredChanges.push(addressChangeRecord);
+            console.log(
+              `🚨 GENERIC DETECTION: Added ${pattern.companyName} (${pattern.riskLevel} risk)`
+            );
+          }
         }
+      } catch (error) {
+        console.error("Generic fraud detection failed:", error);
       }
-    } catch (error) {
-      console.error("Generic fraud detection failed:", error);
     }
-  }
 
     if (riskLevel) {
       filteredChanges = filteredChanges.filter(

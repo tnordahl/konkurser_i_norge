@@ -242,29 +242,12 @@ async function getExistingDataCoverage(
 
     const existingDates: Date[] = [];
 
-    if (kommuneNumber === "4201") {
-      // Risør - we have some data
-      // Simulate that we have data for the last 30 days, but missing older data
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      for (
-        let d = new Date(thirtyDaysAgo);
-        d <= endDate;
-        d.setDate(d.getDate() + 1)
-      ) {
-        existingDates.push(new Date(d));
-      }
-
-      // Add some random historical dates to simulate partial coverage
-      for (let i = 0; i < 50; i++) {
-        const randomDate = new Date(
-          startDate.getTime() +
-            Math.random() * (thirtyDaysAgo.getTime() - startDate.getTime())
-        );
-        existingDates.push(randomDate);
-      }
-    }
+    // Generic data existence check - would query actual database in production
+    // TODO: Implement real database query for existing data dates
+    // For now, assume no existing data to trigger gap filling
+    console.log(
+      `🔍 Checking existing data for kommune ${kommuneNumber} - not yet implemented`
+    );
 
     return existingDates.sort((a, b) => a.getTime() - b.getTime());
   } catch (error) {
@@ -504,14 +487,9 @@ function estimateFillingTime(gaps: DataGap[]): number {
 }
 
 function getKommuneName(kommuneNumber: string): string {
-  const kommuneMap: Record<string, string> = {
-    "4201": "Risør",
-    "4213": "Tvedestrand",
-    "4211": "Gjerstad",
-    "0301": "Oslo",
-    "4204": "Kristiansand",
-  };
-  return kommuneMap[kommuneNumber] || `Kommune ${kommuneNumber}`;
+  // Generic kommune name lookup - would use external API in production
+  // TODO: Implement dynamic kommune name lookup from SSB or other official source
+  return `Kommune ${kommuneNumber}`;
 }
 
 // Type definitions for results

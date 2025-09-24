@@ -8,38 +8,52 @@ datasource db {
 }
 
 model Kommune {
-  id             String          @id @default(cuid())
-  kommuneNumber  String          @unique
+  id             String              @id @default(cuid())
+  kommuneNumber  String              @unique
   name           String
   county         String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  priority       String?
+  region         String?
   addressChanges AddressChange[]
   bankruptcies   Bankruptcy[]
+  companies      Company[]
+  postalCodes    KommunePostalCode[]
 
   @@map("kommuner")
 }
 
 model Bankruptcy {
-  id                     String          @id @default(cuid())
-  companyName            String
-  organizationNumber     String          @unique
-  bankruptcyDate         DateTime
-  address                String?
-  industry               String?
-  hasRecentAddressChange Boolean         @default(false)
-  kommuneId              String
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
-  lastChecked            DateTime        @default(now())
-  sourceUrl              String?
-  sourceSystem           String?
-  addressHistory         AddressChange[]
-  kommune                Kommune         @relation(fields: [kommuneId], references: [id])
+  id                         String          @id @default(cuid())
+  companyName                String
+  organizationNumber         String          @unique
+  bankruptcyDate             DateTime
+  address                    String?
+  industry                   String?
+  hasRecentAddressChange     Boolean         @default(false)
+  kommuneId                  String
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+  lastChecked                DateTime        @default(now())
+  sourceUrl                  String?
+  sourceSystem               String?
+  isShellCompanySuspicious   Boolean         @default(false)
+  konkursboEstablishmentDate DateTime?
+  konkursboName              String?
+  konkursboOrgNumber         String?
+  lifespanInDays             Int?
+  originalCompanyName        String?
+  originalOrgNumber          String?
+  originalRegistrationDate   DateTime?
+  registrationDate           DateTime?
+  addressHistory             AddressChange[]
+  kommune                    Kommune         @relation(fields: [kommuneId], references: [id])
 
   @@index([kommuneId])
   @@index([bankruptcyDate])
   @@index([organizationNumber])
+  @@index([originalOrgNumber])
   @@map("bankruptcies")
 }
 
@@ -82,4 +96,258 @@ model DataSyncLog {
   @@index([status])
   @@index([startedAt])
   @@map("data_sync_logs")
+}
+
+model Company {
+  id                    String                @id @default(cuid())
+  organizationNumber    String                @unique
+  name                  String
+  organizationForm      String?               // AS, ASA, NUF, etc.
+  status                String?               // Active, Dissolved, Bankruptcy, etc.
+  registrationDate      DateTime?
+  industry              String?
+  industryCode          String?
+  currentKommuneId      String?
+  currentAddress        String?
+  currentPostalCode     String?
+  currentCity           String?
+  businessAddress       Json?
+  postalAddress         Json?
+  employeeCount         Int?
+  revenue               BigInt?
+  lastUpdated           DateTime              @default(now())
+  createdAt             DateTime              @default(now())
+  
+  // Relations
+  currentKommune        Kommune?              @relation(fields: [currentKommuneId], references: [id])
+  riskProfile           RiskCompany?          // 1-to-1 if company has risk factors
+  addressChanges        AddressChangeAlert[]  // All suspicious address changes
+  fraudIndicators       FraudIndicator[]      // All fraud-related flags
+  addressHistory        CompanyAddressHistory[] // Keep existing relation
+  riskAlerts            CompanyRiskAlert[]    // Keep existing relation
+  
+  @@index([organizationNumber])
+  @@index([currentKommuneId])
+  @@index([status])
+  @@index([lastUpdated])
+  @@map("companies")
+}
+
+model CompanyAddressHistory {
+  id                 String    @id @default(cuid())
+  companyId          String
+  organizationNumber String
+  address            String
+  postalCode         String?
+  city               String?
+  kommuneNumber      String?
+  kommuneName        String?
+  fromDate           DateTime?
+  toDate             DateTime?
+  isCurrentAddress   Boolean   @default(false)
+  addressType        String
+  createdAt          DateTime  @default(now())
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([organizationNumber])
+  @@index([kommuneNumber])
+  @@index([fromDate])
+  @@index([toDate])
+  @@index([isCurrentAddress])
+  @@map("company_address_history")
+}
+
+model CompanyRiskAlert {
+  id                 String    @id @default(cuid())
+  companyId          String
+  organizationNumber String
+  alertType          String
+  riskLevel          String
+  kommuneNumber      String?
+  title              String
+  description        String
+  metadata           Json?
+  isActive           Boolean   @default(true)
+  triggeredAt        DateTime  @default(now())
+  resolvedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, alertType, kommuneNumber], name: "companyId_alertType_kommuneNumber")
+  @@index([organizationNumber])
+  @@index([alertType])
+  @@index([riskLevel])
+  @@index([kommuneNumber])
+  @@index([isActive])
+  @@index([triggeredAt])
+  @@map("company_risk_alerts")
+}
+
+// New optimized models for enhanced fraud detection
+
+model RiskCompany {
+  id                    String                @id @default(cuid())
+  companyId             String                @unique
+  organizationNumber    String                @unique
+  riskScore             Int                   @default(0)
+  riskLevel             String                // LOW, MEDIUM, HIGH, CRITICAL
+  lastAssessment        DateTime              @default(now())
+  
+  // Risk factors
+  hasAddressChanges     Boolean               @default(false)
+  hasBankruptcyRisk     Boolean               @default(false)
+  hasShellCompanyTraits Boolean               @default(false)
+  hasNetworkConnections Boolean               @default(false)
+  
+  // Fraud indicators
+  suspiciousPatterns    Json?                 // Array of detected patterns
+  fraudScore            Int                   @default(0)
+  investigationPriority Int                   @default(0) // 1-10
+  
+  // Monitoring
+  monitoringStatus      String                @default("ACTIVE") // ACTIVE, PAUSED, RESOLVED
+  nextReviewDate        DateTime?
+  assignedInvestigator  String?
+  
+  // Relations
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  addressChanges        AddressChangeAlert[]
+  fraudIndicators       FraudIndicator[]
+  investigations        Investigation[]
+  
+  @@index([riskScore])
+  @@index([riskLevel])
+  @@index([fraudScore])
+  @@index([investigationPriority])
+  @@index([monitoringStatus])
+  @@map("risk_companies")
+}
+
+model AddressChangeAlert {
+  id                    String                @id @default(cuid())
+  companyId             String
+  riskCompanyId         String?
+  organizationNumber    String
+  
+  // Address change details
+  fromAddress           String
+  toAddress             String
+  fromKommuneNumber     String?
+  toKommuneNumber       String?
+  fromKommuneName       String?
+  toKommuneName         String?
+  changeDate            DateTime
+  
+  // Suspicion factors
+  alertLevel            String                // LOW, MEDIUM, HIGH, CRITICAL
+  suspicionReasons      Json                  // Array of reasons why this is suspicious
+  proximityToBankruptcy Int?                  // Days before/after bankruptcy
+  crossKommuneMove      Boolean               @default(false)
+  rapidSuccession       Boolean               @default(false) // Multiple moves in short time
+  
+  // Investigation status
+  status                String                @default("PENDING") // PENDING, INVESTIGATING, RESOLVED, FALSE_POSITIVE
+  investigatedAt        DateTime?
+  investigatedBy        String?
+  resolution            String?
+  
+  // Relations
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  riskCompany           RiskCompany?          @relation(fields: [riskCompanyId], references: [id])
+  
+  @@index([organizationNumber])
+  @@index([alertLevel])
+  @@index([status])
+  @@index([changeDate])
+  @@index([fromKommuneNumber])
+  @@index([toKommuneNumber])
+  @@map("address_change_alerts")
+}
+
+model FraudIndicator {
+  id                    String                @id @default(cuid())
+  companyId             String
+  riskCompanyId         String?
+  organizationNumber    String
+  
+  // Indicator details
+  indicatorType         String                // SHELL_COMPANY, RAPID_DISSOLUTION, ASSET_STRIPPING, etc.
+  severity              String                // LOW, MEDIUM, HIGH, CRITICAL
+  confidence            Float                 // 0.0 - 1.0
+  description           String
+  evidence              Json                  // Supporting evidence and data
+  
+  // Detection metadata
+  detectedAt            DateTime              @default(now())
+  detectionMethod       String                // ALGORITHM, MANUAL, EXTERNAL_TIP
+  detectedBy            String?               // System or user ID
+  
+  // Investigation
+  status                String                @default("ACTIVE") // ACTIVE, INVESTIGATING, RESOLVED, FALSE_POSITIVE
+  investigationNotes    String?
+  resolvedAt            DateTime?
+  
+  // Relations
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  riskCompany           RiskCompany?          @relation(fields: [riskCompanyId], references: [id])
+  
+  @@index([indicatorType])
+  @@index([severity])
+  @@index([status])
+  @@index([detectedAt])
+  @@index([organizationNumber])
+  @@map("fraud_indicators")
+}
+
+model Investigation {
+  id                    String                @id @default(cuid())
+  caseNumber            String                @unique
+  riskCompanyId         String
+  organizationNumber    String
+  
+  // Case details
+  title                 String
+  description           String
+  priority              String                // LOW, MEDIUM, HIGH, URGENT
+  status                String                // OPEN, IN_PROGRESS, CLOSED, SUSPENDED
+  
+  // Assignment
+  assignedTo            String?
+  assignedAt            DateTime?
+  
+  // Timeline
+  openedAt              DateTime              @default(now())
+  closedAt              DateTime?
+  
+  // Results
+  findings              String?
+  actionTaken           String?
+  outcome               String?               // NO_ACTION, WARNING_ISSUED, REPORTED_TO_AUTHORITIES, etc.
+  
+  // Relations
+  riskCompany           RiskCompany           @relation(fields: [riskCompanyId], references: [id])
+  
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([openedAt])
+  @@map("investigations")
+}
+
+model KommunePostalCode {
+  id            String   @id @default(cuid())
+  kommuneId     String
+  kommuneNumber String
+  postalCode    String
+  city          String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  kommune       Kommune  @relation(fields: [kommuneId], references: [id], onDelete: Cascade)
+
+  @@unique([kommuneNumber, postalCode], name: "kommuneNumber_postalCode")
+  @@index([kommuneNumber])
+  @@index([postalCode])
+  @@index([city])
+  @@map("kommune_postal_codes")
 }

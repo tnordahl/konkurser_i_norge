@@ -1,6 +1,7 @@
 import {
   getAllKommuner as getAllKommunerFromDB,
   getBankruptciesForKommune,
+  getAllCompaniesFromDB,
   saveBankruptcyData,
   getDataCoverage,
 } from "./database";
@@ -22,6 +23,21 @@ export interface BankruptcyData {
     fromDate: string;
     toDate: string;
   }>;
+  // **NEW: Shell company fraud detection fields**
+  lifespanInDays?: number;
+  isShellCompanySuspicious?: boolean;
+  registrationDate?: string;
+  // **NEW: Original company vs bankruptcy estate info**
+  originalCompany?: {
+    name: string;
+    organizationNumber: string;
+    registrationDate?: string;
+  };
+  konkursbo?: {
+    name: string;
+    organizationNumber: string;
+    establishmentDate: string;
+  };
 }
 
 export interface KommuneData {
@@ -205,6 +221,84 @@ async function fetchCompanyAddressHistory(organizationNumber: string): Promise<{
 }
 
 /**
+ * Try to find the original company behind a KONKURSBO
+ */
+async function findOriginalCompanyFromKoncursbo(
+  konkursboName: string,
+  konkursboOrgNumber: string
+): Promise<{
+  name: string;
+  organizationNumber: string;
+  registrationDate?: string;
+} | null> {
+  try {
+    // Extract the base company name from KONKURSBO name
+    // e.g., "ELECO ELEKTROINSTALLASJON AS TVANGSAVVIKLINGSBO" -> "ELECO ELEKTROINSTALLASJON AS"
+    const baseCompanyName = konkursboName
+      .replace(/\s+(KONKURSBO|TVANGSAVVIKLINGSBO)$/i, "")
+      .replace(/\s+KONKURS$/i, "")
+      .trim();
+
+    console.log(
+      `🔍 Looking for original company: "${baseCompanyName}" (from KONKURSBO: ${konkursboName})`
+    );
+
+    // Search for the original company by name
+    const searchParams = new URLSearchParams({
+      navn: baseCompanyName,
+      size: "10",
+    });
+
+    const enhetsregisterUrl =
+      "https://data.brreg.no/enhetsregisteret/api/enheter";
+    const response = await fetch(`${enhetsregisterUrl}?${searchParams}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "konkurser-i-norge-app/1.0",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to search for original company: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data._embedded?.enheter) {
+      // Look for the best match - prefer exact name matches that are not KONKURSBO
+      for (const enhet of data._embedded.enheter) {
+        if (
+          enhet.organisasjonsform?.kode !== "KBO" && // Not a bankruptcy estate
+          enhet.navn.toLowerCase().includes(baseCompanyName.toLowerCase()) &&
+          !enhet.navn.toLowerCase().includes("konkursbo") &&
+          !enhet.navn.toLowerCase().includes("tvangsavviklingsbo")
+        ) {
+          console.log(
+            `✅ Found original company: ${enhet.navn} (${enhet.organisasjonsnummer})`
+          );
+          return {
+            name: enhet.navn,
+            organizationNumber: enhet.organisasjonsnummer,
+            registrationDate: enhet.registreringsdatoEnhetsregisteret,
+          };
+        }
+      }
+    }
+
+    console.log(`⚠️ Could not find original company for: ${baseCompanyName}`);
+    return null;
+  } catch (error) {
+    console.error(
+      `❌ Error finding original company for ${konkursboName}:`,
+      error
+    );
+    return null;
+  }
+}
+
+/**
  * Fetch bankruptcy data from Brønnøysundregistrene API with address change detection
  */
 export async function fetchBankruptcyDataFromExternalAPI(
@@ -310,6 +404,88 @@ export async function fetchBankruptcyDataFromExternalAPI(
               (bankruptcyDate >= startDate && bankruptcyDate <= endDate);
 
             if (isBankrupt && isWithinDateRange) {
+              const isKoncursbo =
+                enhet.organisasjonsform?.kode === "KBO" ||
+                enhet.navn.toLowerCase().includes("konkursbo") ||
+                enhet.navn.toLowerCase().includes("tvangsavviklingsbo");
+
+              let finalCompanyName = enhet.navn;
+              let finalOrgNumber = enhet.organisasjonsnummer;
+              let originalCompany = null;
+              let konkursboInfo = null;
+
+              // If this is a KONKURSBO, try to find the original company
+              if (isKoncursbo) {
+                console.log(
+                  `🏢 Found KONKURSBO: ${enhet.navn} (${enhet.organisasjonsnummer})`
+                );
+
+                // Store KONKURSBO info
+                konkursboInfo = {
+                  name: enhet.navn,
+                  organizationNumber: enhet.organisasjonsnummer,
+                  establishmentDate: enhet.stiftelsesdato || bankruptcyDate,
+                };
+
+                // Try to find the original company
+                const foundOriginal = await findOriginalCompanyFromKoncursbo(
+                  enhet.navn,
+                  enhet.organisasjonsnummer
+                );
+
+                if (foundOriginal) {
+                  originalCompany = foundOriginal;
+                  finalCompanyName = foundOriginal.name;
+                  finalOrgNumber = foundOriginal.organizationNumber;
+                  console.log(
+                    `✅ Using original company: ${finalCompanyName} (${finalOrgNumber})`
+                  );
+                } else {
+                  // If we can't find the original, clean up the KONKURSBO name
+                  finalCompanyName = enhet.navn
+                    .replace(/\s+(KONKURSBO|TVANGSAVVIKLINGSBO)$/i, "")
+                    .replace(/\s+KONKURS$/i, "")
+                    .trim();
+                  console.log(
+                    `⚠️ Could not find original company, using cleaned name: ${finalCompanyName}`
+                  );
+                }
+
+                // Add small delay after API call
+                await new Promise((resolve) => setTimeout(resolve, 200));
+              }
+
+              // **SHELL COMPANY DETECTION: Check for suspicious short lifespan**
+              const registrationDate =
+                (originalCompany?.registrationDate
+                  ? new Date(originalCompany.registrationDate)
+                  : null) ||
+                (enhet.registreringsdatoEnhetsregisteret
+                  ? new Date(enhet.registreringsdatoEnhetsregisteret)
+                  : null);
+              const bankruptcyDateObj = bankruptcyDate
+                ? new Date(bankruptcyDate)
+                : new Date();
+
+              let lifespanInDays = 0;
+              let isShellCompanySuspicious = false;
+
+              if (registrationDate) {
+                lifespanInDays = Math.ceil(
+                  (bankruptcyDateObj.getTime() - registrationDate.getTime()) /
+                    (1000 * 60 * 60 * 24)
+                );
+
+                // SHELL COMPANY RED FLAGS:
+                if (lifespanInDays <= 365) {
+                  // Less than 1 year lifespan
+                  isShellCompanySuspicious = true;
+                  console.log(
+                    `🚨 SHELL COMPANY ALERT: ${finalCompanyName} - Only ${lifespanInDays} days from registration to bankruptcy!`
+                  );
+                }
+              }
+
               // Extract current address information
               let address = "";
               if (enhet.forretningsadresse) {
@@ -325,23 +501,31 @@ export async function fetchBankruptcyDataFromExternalAPI(
 
               // **KEY FEATURE: Fetch address history to detect moves out of kommune**
               console.log(
-                `🔍 Checking address history for ${enhet.navn} (${enhet.organisasjonsnummer})`
+                `🔍 Checking address history for ${finalCompanyName} (${finalOrgNumber})`
               );
-              const addressHistory = await fetchCompanyAddressHistory(
-                enhet.organisasjonsnummer
-              );
+              const addressHistory =
+                await fetchCompanyAddressHistory(finalOrgNumber);
 
               // Add small delay to avoid overwhelming the API
               await new Promise((resolve) => setTimeout(resolve, 100));
 
               bankruptcies.push({
-                companyName: enhet.navn,
-                organizationNumber: enhet.organisasjonsnummer,
+                companyName: finalCompanyName,
+                organizationNumber: finalOrgNumber,
                 bankruptcyDate: bankruptcyDate || startDate,
                 address: address,
                 industry: enhet.naeringskode1?.beskrivelse || "Ukjent bransje",
                 hasRecentAddressChange: addressHistory.hasRecentAddressChange,
                 previousAddresses: addressHistory.previousAddresses,
+                // **NEW: Shell company fraud indicators**
+                lifespanInDays: lifespanInDays,
+                isShellCompanySuspicious: isShellCompanySuspicious,
+                registrationDate: registrationDate
+                  ? registrationDate.toISOString().split("T")[0]
+                  : null,
+                // **NEW: Original company vs bankruptcy estate info**
+                originalCompany: originalCompany,
+                konkursbo: konkursboInfo,
               });
 
               if (addressHistory.hasRecentAddressChange) {
@@ -403,6 +587,20 @@ export async function getBankruptcyDataForKommune(
   } catch (error) {
     console.error("Failed to fetch bankruptcy data from database:", error);
     throw new Error("Failed to fetch bankruptcy data from database");
+  }
+}
+
+/**
+ * Get all companies for a specific kommune
+ */
+export async function getAllCompaniesForKommune(
+  kommuneNumber: string
+): Promise<BankruptcyData[]> {
+  try {
+    return await getAllCompaniesFromDB(kommuneNumber);
+  } catch (error) {
+    console.error("Failed to fetch all companies from database:", error);
+    throw new Error("Failed to fetch all companies from database");
   }
 }
 
@@ -542,13 +740,16 @@ export function getKommuneInfo(kommuneNumber: string): {
   county: string;
 } {
   // Basic Norwegian municipality information for UI fallback
+  // Extended with common kommune mappings
   const basicKommuneInfo: Record<string, { name: string; county: string }> = {
-    "0301": { name: "Oslo", county: "Oslo" },
     "4201": { name: "Risør", county: "Agder" },
-    "4203": { name: "Arendal", county: "Agder" },
+    "0301": { name: "Oslo", county: "Oslo" },
     "1103": { name: "Stavanger", county: "Rogaland" },
-    "4601": { name: "Bergen", county: "Vestland" },
-    "5001": { name: "Trondheim", county: "Trøndelag" },
+    "4203": { name: "Arendal", county: "Agder" },
+    "4211": { name: "Tvedestrand", county: "Agder" },
+    "4020": { name: "Midt-Telemark", county: "Telemark" },
+    "5001": { name: "Bergen", county: "Vestland" },
+    "5401": { name: "Tromsø", county: "Troms og Finnmark" },
   };
 
   const info = basicKommuneInfo[kommuneNumber];

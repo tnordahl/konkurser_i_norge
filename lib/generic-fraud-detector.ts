@@ -26,67 +26,87 @@ export interface EscapedCompanyPattern {
   riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   detectionMethod: string;
   confidence: number; // 0-100
+  // **NEW: Shell company indicators**
+  lifespanInDays?: number;
+  isShellCompanySuspicious?: boolean;
+  registrationDate?: string;
 }
 
 /**
- * Known professional services in Risør that might serve escaped companies
+ * GENERIC PROFESSIONAL SERVICE DETECTION
+ * The system will automatically discover professional service networks
+ * by analyzing company data and connections dynamically
  */
-const RISOR_PROFESSIONAL_SERVICES = [
-  {
-    name: "RISØR REGNSKAP AS",
-    orgNumber: "923185534",
-    address: "Prestegata 7, 4950 RISØR",
-    type: "ACCOUNTANT",
-  },
-  {
-    name: "REVISJON SØR AS",
-    orgNumber: "943708428",
-    address: "Henrik Wergelands gate 27, 4612 KRISTIANSAND S",
-    type: "AUDITOR",
-    servesRisorArea: true,
-  },
-  // Add more as discovered
-];
 
 /**
- * Known escaped companies (from user intelligence)
+ * FULLY DYNAMIC DETECTION - NO HARDCODED PATTERNS
+ * The system will discover suspicious companies through:
+ * 1. Address history analysis from API
+ * 2. Professional service network connections
+ * 3. Business relationship patterns
+ * 4. Cross-reference with actual bankruptcy data
  */
-const KNOWN_ESCAPED_COMPANIES = [
-  {
-    name: "DET LILLE HOTEL AS",
-    orgNumber: "989213598",
-    evidence: [
-      "Uses RISØR REGNSKAP AS",
-      "Board chairman is lawyer",
-      "User confirmed move from Risør",
-    ],
-  },
-    // PHOENIX COMPANY PATTERN: STRANDGATA 23 RESTAURANTHUS AS created shell companies before bankruptcy
-    // Original company was in Bø i Telemark, but may have created new entities to strip assets
-    {
-      name: "STRANDGATA 23 RESTAURANTHUS AS (Phoenix Pattern)",
-      orgNumber: "994810367", // Original company that went bankrupt
-      evidence: [
-        "Phoenix company fraud pattern detected",
-        "Created shell companies before bankruptcy",
-        "Asset stripping via new corporate entities",
-        "Classic restaurant industry fraud scheme"
-      ],
-    },
-  {
-    name: "ØSTNES AS",
-    orgNumber: "UNKNOWN", // To be investigated
-    evidence: ["User reported as escaped from Risør"],
-  },
-  {
-    name: "MINDE HÅNDVERKSTJENESTER AS",
-    orgNumber: "UNKNOWN", // To be investigated
-    evidence: [
-      "User reported as escaped from Risør",
-      "Construction/handwerk - high fraud risk",
-    ],
-  },
-];
+
+/**
+ * Detect shell companies based on short lifespan and suspicious patterns
+ */
+export function detectShellCompanyPatterns(
+  registrationDate: string,
+  bankruptcyDate: string,
+  companyName: string
+): {
+  lifespanInDays: number;
+  isShellCompanySuspicious: boolean;
+  shellCompanyIndicators: string[];
+} {
+  const regDate = new Date(registrationDate);
+  const bankDate = new Date(bankruptcyDate);
+  const lifespanInDays = Math.ceil(
+    (bankDate.getTime() - regDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  const shellCompanyIndicators: string[] = [];
+  let isShellCompanySuspicious = false;
+
+  // **SHELL COMPANY RED FLAGS:**
+
+  // 1. Extremely short lifespan (less than 6 months)
+  if (lifespanInDays <= 180) {
+    shellCompanyIndicators.push("EXTREMELY_SHORT_LIFESPAN");
+    isShellCompanySuspicious = true;
+  }
+  // 2. Short lifespan (less than 1 year)
+  else if (lifespanInDays <= 365) {
+    shellCompanyIndicators.push("SHORT_LIFESPAN");
+    isShellCompanySuspicious = true;
+  }
+
+  // 3. Company name patterns that suggest shell companies
+  const suspiciousNamePatterns = [
+    /holding/i,
+    /invest/i,
+    /capital/i,
+    /management/i,
+    /\d+\s*(as|ab|ltd)/i, // Numbers + company form (like "123 AS")
+    /^[a-z]\s+(as|ab|ltd)/i, // Single letter + company form
+  ];
+
+  if (suspiciousNamePatterns.some((pattern) => pattern.test(companyName))) {
+    shellCompanyIndicators.push("SUSPICIOUS_COMPANY_NAME");
+  }
+
+  // 4. Very quick bankruptcy (less than 3 months)
+  if (lifespanInDays <= 90) {
+    shellCompanyIndicators.push("LIGHTNING_BANKRUPTCY");
+    isShellCompanySuspicious = true;
+  }
+
+  return {
+    lifespanInDays,
+    isShellCompanySuspicious,
+    shellCompanyIndicators,
+  };
+}
 
 /**
  * Generic algorithm to detect escaped companies from a specific kommune
@@ -110,9 +130,10 @@ export async function detectEscapedCompanies(
     await detectViaAddressPatterns(targetKommuneNumber);
   escapedCompanies.push(...addressPatternCompanies);
 
-  // Method 3: Known Case Integration (from user intelligence)
-  const knownCaseCompanies = await integrateKnownCases(targetKommuneNumber);
-  escapedCompanies.push(...knownCaseCompanies);
+  // Method 3: Automatic Search and Investigation (NO HARDCODING)
+  const searchedCompanies =
+    await searchForSuspiciousCompanies(targetKommuneNumber);
+  escapedCompanies.push(...searchedCompanies);
 
   // Method 4: Cross-Kommune Business Registration Analysis
   const registrationPatternCompanies =
@@ -140,38 +161,15 @@ async function detectViaServiceNetworks(
 ): Promise<EscapedCompanyPattern[]> {
   const companies: EscapedCompanyPattern[] = [];
 
-  if (kommuneNumber === "4201") {
-    // Risør
-    // In a real system, this would query professional service databases
-    // For now, we use known patterns
+  // TODO: Implement generic professional service network analysis
+  // This would analyze:
+  // 1. Companies using accountants/lawyers in different kommuner
+  // 2. Board members with addresses in different kommuner
+  // 3. Professional service patterns that indicate historical connections
 
-    companies.push({
-      companyName: "DET LILLE HOTEL AS",
-      organizationNumber: "989213598",
-      currentAddress: {
-        address: "Rundtjernveien 52B, 0672 OSLO",
-        kommuneNumber: "0301",
-        kommuneName: "OSLO",
-      },
-      suspectedOriginKommune: {
-        kommuneNumber: "4201",
-        kommuneName: "RISØR",
-        evidence: [
-          "Uses RISØR REGNSKAP AS as accountant",
-          "Professional service network indicates Risør connection",
-        ],
-      },
-      fraudIndicators: [
-        "CROSS_KOMMUNE_PROFESSIONAL_SERVICES",
-        "LAWYER_BOARD_CONTROL",
-        "HIGH_CASH_BUSINESS",
-        "RECENT_ADDRESS_CHANGE",
-      ],
-      riskLevel: "CRITICAL",
-      detectionMethod: "PROFESSIONAL_SERVICE_NETWORK",
-      confidence: 95,
-    });
-  }
+  console.log(
+    `🔍 Professional service network analysis for kommune ${kommuneNumber} - not yet implemented`
+  );
 
   return companies;
 }
@@ -192,69 +190,23 @@ async function detectViaAddressPatterns(
 }
 
 /**
- * Method 3: Integrate known cases from user intelligence
+ * Method 3: Automatic company search and investigation (NO HARDCODING)
  */
-async function integrateKnownCases(
+async function searchForSuspiciousCompanies(
   kommuneNumber: string
 ): Promise<EscapedCompanyPattern[]> {
   const companies: EscapedCompanyPattern[] = [];
 
-  if (kommuneNumber === "4201") {
-    // Risør
-    // Add the additional companies the user mentioned
-    const suspectedCompanies = [
-      {
-        name: "STRANDGATA 23 RESTAURANTHUS AS",
-        indicators: [
-          "RESTAURANT_CASH_BUSINESS",
-          "USER_INTELLIGENCE",
-          "STRANDGATA_ADDRESS_PATTERN",
-        ],
-        riskLevel: "HIGH" as const,
-        confidence: 80,
-      },
-      {
-        name: "ØSTNES AS",
-        indicators: ["USER_INTELLIGENCE", "POTENTIAL_CONSTRUCTION"],
-        riskLevel: "MEDIUM" as const,
-        confidence: 70,
-      },
-      {
-        name: "MINDE HÅNDVERKSTJENESTER AS",
-        indicators: [
-          "CONSTRUCTION_HANDWERK",
-          "HIGH_FRAUD_INDUSTRY",
-          "USER_INTELLIGENCE",
-        ],
-        riskLevel: "HIGH" as const,
-        confidence: 85,
-      },
-    ];
+  // TODO: Implement truly generic suspicious company detection
+  // This would analyze:
+  // 1. Companies with address history showing moves FROM the target kommune
+  // 2. Companies with professional service connections to the target kommune
+  // 3. Companies with board members historically connected to the target kommune
+  // 4. Cross-reference with bankruptcy timing patterns
 
-    for (const suspected of suspectedCompanies) {
-      companies.push({
-        companyName: suspected.name,
-        organizationNumber: "INVESTIGATION_NEEDED",
-        currentAddress: {
-          address: "Unknown - requires investigation",
-          kommuneNumber: "UNKNOWN",
-          kommuneName: "UNKNOWN",
-        },
-        suspectedOriginKommune: {
-          kommuneNumber: "4201",
-          kommuneName: "RISØR",
-          evidence: [
-            "User intelligence indicates historical Risør connection",
-            "Pattern matches known fraud cases",
-          ],
-        },
-        fraudIndicators: suspected.indicators,
-        riskLevel: suspected.riskLevel,
-        detectionMethod: "USER_INTELLIGENCE",
-        confidence: suspected.confidence,
-      });
-    }
-  }
+  console.log(
+    `🔍 Generic suspicious company detection for kommune ${kommuneNumber} - not yet implemented`
+  );
 
   return companies;
 }

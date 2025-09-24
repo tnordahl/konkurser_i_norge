@@ -1,0 +1,100 @@
+[
+  {
+  "organisasjonsnummer" : "810034882",
+  "navn" : "SANDNES ELEKTRISKE AS",
+  "organisasjonsform" : {
+    "kode" : "AS",
+    "beskrivelse" : "Aksjeselskap",
+    "links" : [ ]
+  },
+  "postadresse" : {
+    "land" : "Norge",
+    "landkode" : "NO",
+    "postnummer" : "4301",
+    "poststed" : "SANDNES",
+    "adresse" : [ "Postboks 32" ],
+    "kommune" : "SANDNES",
+    "kommunenummer" : "1108"
+  },
+  "registreringsdatoEnhetsregisteret" : "1995-02-19",
+  "registrertIMvaregisteret" : true,
+  "naeringskode1" : {
+    "kode" : "43.210",
+    "beskrivelse" : "Elektrisk installasjonsarbeid"
+  },
+  "naeringskode2" : {
+    "kode" : "27.510",
+    "beskrivelse" : "Produksjon av elektriske husholdningsmaskiner og -apparater"
+  },
+  "antallAnsatte" : 10,
+  "harRegistrertAntallAnsatte" : true,
+  "registreringsdatoMerverdiavgiftsregisteret" : "1977-07-01",
+  "registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret" : "1995-02-19",
+  "registreringsdatoAntallAnsatteEnhetsregisteret" : "2025-06-12",
+  "registreringsdatoAntallAnsatteNAVAaregisteret" : "2025-06-10",
+  "epostadresse" : "post@sandneselektriske.no",
+  "telefon" : "51 68 57 00",
+  "forretningsadresse" : {
+    "land" : "Norge",
+    "landkode" : "NO",
+    "postnummer" : "4307",
+    "poststed" : "SANDNES",
+    "adresse" : [ "Strandgata 21" ],
+    "kommune" : "SANDNES",
+    "kommunenummer" : "1108"
+  },
+  "stiftelsesdato" : "1977-06-15",
+  "institusjonellSektorkode" : {
+    "kode" : "2100",
+    "beskrivelse" : "Private aksjeselskaper mv."
+  },
+  "registrertIForetaksregisteret" : true,
+  "registrertIStiftelsesregisteret" : false,
+  "registrertIFrivillighetsregisteret" : false,
+  "sisteInnsendteAarsregnskap" : "2023",
+  "konkurs" : false,
+  "underAvvikling" : false,
+  "underTvangsavviklingEllerTvangsopplosning" : false,
+  "maalform" : "Bokmål",
+  "vedtektsdato" : "2024-12-09",
+  "vedtektsfestetFormaal" : [ "Drive handel, installasjons og servicevirksomhet, eller annen", "virksomhet forbundet med dette, samt delta i annen virksomhet." ],
+  "aktivitet" : [ "Handel og innstallasjonsvirksomhet, eller annen virksomhet forbundet", "med dette, samt delta I annen virksomhet." ],
+  "registreringsdatoForetaksregisteret" : "1990-02-21",
+  "registrertIPartiregisteret" : false,
+  "paategninger" : [ ],
+  "links" : [ ],
+  "respons_klasse" : "Enhet"
+},
+  {
+  "organisasjonsnummer" : "810059672",
+  "navn" : "AASEN & FARSTAD AS",
+  "organisasjonsform" : {
+    "kode" : "AS",
+    "beskrivelse" : "Aksjeselskap",
+    "links" : [ ]
+  },
+  "registreringsdatoEnhetsregisteret" : "1995-02-19",
+  "registrertIMvaregisteret" : false,
+  "naeringskode1" : {
+    "kode" : "68.200",
+    "beskrivelse" : "Utleie av egen eller leid fast eiendom"
+  },
+  "harRegistrertAntallAnsatte" : false,
+  "telefon" : "71 23 24 56",
+  "mobil" : "41643007",
+  "forretningsadresse" : {
+    "land" : "Norge",
+    "landkode" : "NO",
+    "postnummer" : "6460",
+    "poststed" : "EIDSVÅG I ROMSDAL",
+    "adresse" : [ "Sjøgardsvegen 8" ],
+    "kommune" : "MOLDE",
+    "kommunenummer" : "1506"
+  },
+  "stiftelsesdato" : "1965-06-26",
+  "institusjonellSektorkode" : {
+    "kode" : "2100",
+    "beskrivelse" : "Private aksjeselskaper mv."
+  },
+  "registrertIForetaksregisteret" : true,
+  "registrertIStiftelsesregisteret" : false,

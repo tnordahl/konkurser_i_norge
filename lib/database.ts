@@ -59,6 +59,68 @@ export async function getKommuneById(kommuneNumber: string) {
   }
 }
 
+export async function getAllCompaniesFromDB(
+  kommuneNumber: string,
+  fromDate?: Date,
+  toDate?: Date
+) {
+  try {
+    const kommune = await prisma.kommune.findUnique({
+      where: { kommuneNumber },
+      select: { id: true },
+    });
+
+    if (!kommune) {
+      console.warn(`Kommune ${kommuneNumber} not found in database`);
+      return [];
+    }
+
+    const whereClause: any = {
+      currentKommuneId: kommune.id,
+    };
+
+    if (fromDate || toDate) {
+      whereClause.registrationDate = {};
+      if (fromDate) whereClause.registrationDate.gte = fromDate;
+      if (toDate) whereClause.registrationDate.lte = toDate;
+    }
+
+    const companies = await prisma.company.findMany({
+      where: whereClause,
+      orderBy: {
+        registrationDate: "desc",
+      },
+      take: 1000, // Increased limit to show more companies
+    });
+
+    return companies.map((c) => ({
+      id: c.id,
+      companyName: c.name,
+      organizationNumber: c.organizationNumber,
+      bankruptcyDate: "", // No bankruptcyDate field in new schema
+      address: c.currentAddress,
+      industry: c.industry,
+      hasRecentAddressChange: false, // TODO: Calculate from address history
+      lifespanInDays: c.registrationDate
+        ? Math.floor(
+            (new Date().getTime() - c.registrationDate.getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : 0,
+      isShellCompanySuspicious: false, // TODO: Calculate from risk profile
+      registrationDate: c.registrationDate?.toISOString().split("T")[0],
+      originalCompany: null, // Not applicable for new schema
+      konkursbo: null, // TODO: Add konkursbo support if needed
+    }));
+  } catch (error) {
+    console.error(
+      `Failed to fetch all companies for kommune ${kommuneNumber}:`,
+      error
+    );
+    return [];
+  }
+}
+
 export async function getBankruptciesForKommune(
   kommuneNumber: string,
   fromDate?: Date,
@@ -76,31 +138,41 @@ export async function getBankruptciesForKommune(
     }
 
     const whereClause: any = {
-      kommuneId: kommune.id,
+      currentKommuneId: kommune.id,
+      status: "BANKRUPTCY", // Only bankruptcy status companies
     };
 
     if (fromDate || toDate) {
-      whereClause.bankruptcyDate = {};
-      if (fromDate) whereClause.bankruptcyDate.gte = fromDate;
-      if (toDate) whereClause.bankruptcyDate.lte = toDate;
+      whereClause.registrationDate = {};
+      if (fromDate) whereClause.registrationDate.gte = fromDate;
+      if (toDate) whereClause.registrationDate.lte = toDate;
     }
 
-    const bankruptcies = await prisma.bankruptcy.findMany({
+    const companies = await prisma.company.findMany({
       where: whereClause,
       orderBy: {
-        bankruptcyDate: "desc",
+        registrationDate: "desc",
       },
     });
 
-    return bankruptcies.map((b) => ({
-      id: b.id,
-      companyName: b.companyName,
-      organizationNumber: b.organizationNumber,
-      bankruptcyDate: b.bankruptcyDate.toISOString().split("T")[0],
-      address: b.address,
-      industry: b.industry,
-      hasRecentAddressChange: b.hasRecentAddressChange,
-      previousAddresses: b.previousAddresses as any[],
+    return companies.map((c) => ({
+      id: c.id,
+      companyName: c.name,
+      organizationNumber: c.organizationNumber,
+      bankruptcyDate: "", // No bankruptcyDate field in new schema
+      address: c.currentAddress,
+      industry: c.industry,
+      hasRecentAddressChange: false, // TODO: Calculate from address history
+      lifespanInDays: c.registrationDate
+        ? Math.floor(
+            (new Date().getTime() - c.registrationDate.getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : 0,
+      isShellCompanySuspicious: false, // TODO: Calculate from risk profile
+      registrationDate: c.registrationDate?.toISOString().split("T")[0],
+      originalCompany: null, // Not applicable for new schema
+      konkursbo: null, // TODO: Add konkursbo support if needed
     }));
   } catch (error) {
     console.error(
@@ -155,7 +227,22 @@ export async function saveBankruptcyData(
           address: bankruptcy.address,
           industry: bankruptcy.industry,
           hasRecentAddressChange: bankruptcy.hasRecentAddressChange || false,
-          previousAddresses: bankruptcy.previousAddresses || [],
+          lifespanInDays: bankruptcy.lifespanInDays,
+          isShellCompanySuspicious:
+            bankruptcy.isShellCompanySuspicious || false,
+          registrationDate: bankruptcy.registrationDate
+            ? new Date(bankruptcy.registrationDate)
+            : null,
+          originalCompanyName: bankruptcy.originalCompany?.name,
+          originalOrgNumber: bankruptcy.originalCompany?.organizationNumber,
+          originalRegistrationDate: bankruptcy.originalCompany?.registrationDate
+            ? new Date(bankruptcy.originalCompany.registrationDate)
+            : null,
+          konkursboName: bankruptcy.konkursbo?.name,
+          konkursboOrgNumber: bankruptcy.konkursbo?.organizationNumber,
+          konkursboEstablishmentDate: bankruptcy.konkursbo?.establishmentDate
+            ? new Date(bankruptcy.konkursbo.establishmentDate)
+            : null,
           updatedAt: new Date(),
         },
         create: {
@@ -166,7 +253,22 @@ export async function saveBankruptcyData(
           address: bankruptcy.address,
           industry: bankruptcy.industry,
           hasRecentAddressChange: bankruptcy.hasRecentAddressChange || false,
-          previousAddresses: bankruptcy.previousAddresses || [],
+          lifespanInDays: bankruptcy.lifespanInDays,
+          isShellCompanySuspicious:
+            bankruptcy.isShellCompanySuspicious || false,
+          registrationDate: bankruptcy.registrationDate
+            ? new Date(bankruptcy.registrationDate)
+            : null,
+          originalCompanyName: bankruptcy.originalCompany?.name,
+          originalOrgNumber: bankruptcy.originalCompany?.organizationNumber,
+          originalRegistrationDate: bankruptcy.originalCompany?.registrationDate
+            ? new Date(bankruptcy.originalCompany.registrationDate)
+            : null,
+          konkursboName: bankruptcy.konkursbo?.name,
+          konkursboOrgNumber: bankruptcy.konkursbo?.organizationNumber,
+          konkursboEstablishmentDate: bankruptcy.konkursbo?.establishmentDate
+            ? new Date(bankruptcy.konkursbo.establishmentDate)
+            : null,
         },
       });
 
@@ -315,17 +417,9 @@ export async function getDataCoverage(kommuneNumber: string) {
 // Helper function for basic kommune info (fallback)
 function getKommuneBasicInfo(kommuneNumber: string) {
   // This is a simplified mapping - in a real system you'd have a complete database
-  const kommuneMap: Record<string, { name: string; county: string }> = {
-    "0301": { name: "Oslo", county: "Oslo" },
-    "0901": { name: "Risør", county: "Agder" },
-    "1001": { name: "Kristiansand", county: "Agder" },
-    "1101": { name: "Eigersund", county: "Rogaland" },
-    "1103": { name: "Stavanger", county: "Rogaland" },
-    "1201": { name: "Bergen", county: "Vestland" },
-    "1601": { name: "Trondheim", county: "Trøndelag" },
-    "1806": { name: "Narvik", county: "Nordland" },
-    "2002": { name: "Vardø", county: "Finnmark" },
-  };
+  // Generic kommune lookup - would use external API in production
+  // TODO: Implement dynamic kommune lookup from SSB or other official source
+  const kommuneMap: Record<string, { name: string; county: string }> = {};
 
   return (
     kommuneMap[kommuneNumber] || {
