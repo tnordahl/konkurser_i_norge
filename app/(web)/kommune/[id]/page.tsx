@@ -94,7 +94,8 @@ function BankruptciesSection({ bankruptcies }: { bankruptcies: any[] }) {
             </h3>
             <p className="text-gray-500 text-sm">
               For å vise konkursdata må systemet kobles til norske
-              konkursregistre via API. Klikk &quot;Oppdater data&quot; for å hente data.
+              konkursregistre via API. Klikk &quot;Oppdater data&quot; for å
+              hente data.
             </p>
           </div>
         ) : (
