@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/nightly-dataset-update",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/address-movement-update",
-      "schedule": "0 */6 * * *"
     }
   ]
 }

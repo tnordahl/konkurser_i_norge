@@ -161,7 +161,7 @@ MONITORING_WEBHOOK_URL=https://your-monitoring-service.com/webhook`;
               </p>
               <ol className="text-green-800 text-sm space-y-1 ml-4 list-decimal">
                 <li>Gå til Vercel Dashboard → Storage → Create Database</li>
-                <li>Velg "Postgres" og opprett databasen</li>
+                <li>Velg &quot;Postgres&quot; og opprett databasen</li>
                 <li>Kopier alle connection strings fra .env.local tab</li>
                 <li>
                   Kjør{" "}
@@ -239,7 +239,8 @@ MONITORING_WEBHOOK_URL=https://your-monitoring-service.com/webhook`;
               </h4>
               <ul className="text-blue-800 text-sm space-y-1">
                 <li>
-                  • Erstatt alle "your_*" verdier med dine faktiske verdier
+                  • Erstatt alle &quot;your_*&quot; verdier med dine faktiske
+                  verdier
                 </li>
                 <li>• SANITY_API_TOKEN må ha write-tilgang</li>
                 <li>• CRON_SECRET bør være en sikker, tilfeldig streng</li>
