@@ -15,12 +15,14 @@ A comprehensive system for monitoring Norwegian bankruptcies with intelligent da
 ## Architecture
 
 ### Data Fetching Strategy
+
 - **One year lookback**: Maintains data from one year ago until today
 - **Gap detection**: Intelligently identifies missing data periods
 - **Incremental updates**: Only fetches missing data, not duplicates
 - **External API integration**: Ready for Norwegian bankruptcy registry APIs
 
 ### Performance Optimizations
+
 - **SWR caching**: 5-minute cache with background revalidation
 - **Incremental loading**: Loads data as needed per municipality
 - **Background updates**: Non-blocking data synchronization
@@ -29,6 +31,7 @@ A comprehensive system for monitoring Norwegian bankruptcies with intelligent da
 ## Setup
 
 ### Prerequisites
+
 - Node.js 18+ or Bun
 - Sanity CMS account
 - Git
@@ -36,12 +39,14 @@ A comprehensive system for monitoring Norwegian bankruptcies with intelligent da
 ### Installation
 
 1. **Clone the repository**
+
 ```bash
 git clone https://github.com/tnordahl/konkurser_i_norge.git
 cd konkurser_i_norge
 ```
 
 2. **Install dependencies**
+
 ```bash
 bun install
 # or
@@ -49,7 +54,7 @@ npm install
 ```
 
 3. **Environment Configuration**
-Create a `.env.local` file with the following variables:
+   Create a `.env.local` file with the following variables:
 
 ```env
 # Sanity CMS Configuration
@@ -71,6 +76,7 @@ BANKRUPTCY_API_KEY=your_api_key
 ```
 
 4. **Set up Sanity CMS**
+
 ```bash
 # Navigate to Sanity Studio
 cd sanity-studio  # If you have a separate studio setup
@@ -81,6 +87,7 @@ npx sanity deploy
 ```
 
 5. **Start the development server**
+
 ```bash
 bun dev
 # or
@@ -92,11 +99,13 @@ The application will be available at `http://localhost:3000`.
 ## Usage
 
 ### Viewing Municipality Data
+
 1. Navigate to `/kommuner` to see all municipalities
 2. Click on a specific municipality to view detailed bankruptcy data
 3. Use the "Oppdater data" button to manually trigger data updates for that municipality
 
 ### Admin Dashboard
+
 1. Navigate to `/admin/data-management` to access the admin panel
 2. Monitor scheduler status and trigger manual updates
 3. View data coverage statistics and update history
@@ -131,6 +140,7 @@ The system includes built-in monitoring capabilities:
 ## Development
 
 ### Project Structure
+
 ```
 ├── app/
 │   ├── (web)/                 # Main web application
@@ -170,17 +180,21 @@ The default schedule runs at 2 AM daily. To modify:
 ## Production Deployment
 
 ### Environment Variables
+
 Set the following in production:
+
 - `ENABLE_SCHEDULER=true` - Enables automatic daily updates
 - `NODE_ENV=production` - Optimizes performance
 - `CRON_SECRET` - Secure token for webhook-based updates
 
 ### Monitoring Setup
+
 - Configure `MONITORING_WEBHOOK_URL` for external monitoring
 - Set up log aggregation for error tracking
 - Monitor API rate limits and adjust accordingly
 
 ### Performance Considerations
+
 - SWR cache is optimized for 5-minute intervals
 - Database queries are optimized for municipality-based filtering
 - Consider CDN caching for static assets
@@ -200,6 +214,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 For questions and support:
+
 - Create an issue in the GitHub repository
 - Check the admin dashboard for system status
 - Review logs for debugging information
+-
