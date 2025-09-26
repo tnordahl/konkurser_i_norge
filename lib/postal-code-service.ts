@@ -273,13 +273,16 @@ export class PostalCodeService {
 
     try {
       // First, ensure the kommune exists
+      const kommuneService = (await import('./kommune-service')).kommuneService;
+      const kommuneInfo = kommuneService.getAllKommuner().find(k => k.number === kommuneNumber);
+      
       const kommune = await prisma.kommune.upsert({
         where: { kommuneNumber },
         update: {},
         create: {
           kommuneNumber,
-          name: postalCodes[0]?.kommuneName || `Kommune ${kommuneNumber}`,
-          county: "Unknown", // We'll update this later
+          name: kommuneInfo?.name || postalCodes[0]?.kommuneName || `Kommune ${kommuneNumber}`,
+          county: kommuneInfo?.county || "Unknown",
         },
       });
 

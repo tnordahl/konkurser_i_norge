@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
         riskScore: 25,
         businessAddress: {
           adresse: ["Testveien 1"],
-          postnummer: "4950",
-          poststed: "Risør",
+          postnummer: "0001",
+          poststed: "Oslo",
           kommunenummer: kommuneNumber,
         },
       },
@@ -112,8 +112,8 @@ export async function POST(request: NextRequest) {
         riskScore: 75,
         businessAddress: {
           adresse: ["Konsulentgata 2"],
-          postnummer: "4950",
-          poststed: "Risør",
+          postnummer: "0001",
+          poststed: "Oslo",
           kommunenummer: kommuneNumber,
         },
       },
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       {
         organizationNumber: "999999999",
         name: "TEST COMPANY AS",
-        currentAddress: "Testveien 1, 4950 Risør",
+        currentAddress: "Testveien 1, 0001 Oslo",
         connection: {
           type: "POSTAL_ADDRESS",
           evidence: `Test connection to kommune ${kommuneNumber}`,

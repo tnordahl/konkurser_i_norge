@@ -146,8 +146,8 @@ export class IncrementalScanner {
     const enhetsregisterUrl =
       "https://data.brreg.no/enhetsregisteret/api/enheter";
 
-    // Get postal codes for this kommune (would be dynamic in production)
-    const targetPostalCodes = this.getKommunePostalCodes(kommuneNumber);
+    // Get postal codes for this kommune dynamically
+    const targetPostalCodes = await this.getKommunePostalCodes(kommuneNumber);
 
     // Scan companies nationwide for address mismatches
     const maxPages = PAGINATION.MAX_PAGES_QUICK_SCAN; // Limit for incremental scanning
@@ -499,16 +499,15 @@ export class IncrementalScanner {
   /**
    * Helper functions
    */
-  private getKommunePostalCodes(kommuneNumber: string): string[] {
-    // In production, this would be dynamically looked up
-    // For now, return known postal codes for testing
-    const postalCodeMap: Record<string, string[]> = {
-      "4201": ["4950"], // Risør
-      "0301": ["0001", "0672"], // Oslo (partial)
-      // Add more as needed
-    };
-
-    return postalCodeMap[kommuneNumber] || [];
+  private async getKommunePostalCodes(kommuneNumber: string): Promise<string[]> {
+    try {
+      const { postalCodeService } = await import('./postal-code-service');
+      const postalCodes = await postalCodeService.getPostalCodesForKommune(kommuneNumber);
+      return postalCodes.map(pc => pc.postalCode);
+    } catch (error) {
+      console.warn(`Failed to get postal codes for kommune ${kommuneNumber}:`, error);
+      return [];
+    }
   }
 
   private formatAddress(addr: any): string {
@@ -579,13 +578,16 @@ export class IncrementalScanner {
   }
 
   private getKommuneNames(kommuneNumber: string): string[] {
-    // In production, this would be dynamically looked up
-    const kommuneNameMap: Record<string, string[]> = {
-      "4201": ["Risør", "RISØR"],
-      "0301": ["Oslo", "OSLO"],
-      // Add more as needed
-    };
-
-    return kommuneNameMap[kommuneNumber] || [];
+    try {
+      const { kommuneService } = require('./kommune-service');
+      const kommune = kommuneService.getAllKommuner().find((k: any) => k.number === kommuneNumber);
+      if (kommune) {
+        return [kommune.name, kommune.name.toUpperCase()];
+      }
+      return [];
+    } catch (error) {
+      console.warn(`Failed to get kommune name for ${kommuneNumber}:`, error);
+      return [];
+    }
   }
 }
