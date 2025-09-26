@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# Pre-commit hook to prevent hardcoded data
+# This enforces the CODING_RULES.md
+
+echo "🔍 Checking for hardcoded data violations..."
+
+# Define forbidden patterns
+declare -a FORBIDDEN_PATTERNS=(
+    # Kommune numbers
+    '"4201"'
+    '"4204"' 
+    '"0301"'
+    '"4601"'
+    '"1103"'
+    '"5001"'
+    '"1902"'
+    
+    # Postal codes
+    '"4950"'
+    '"4956"'
+    '"0001"'
+    '"0672"'
+    
+    # City names (hardcoded)
+    '"Risør"'
+    '"RISØR"'
+    '"Oslo"'
+    '"OSLO"'
+    '"Kristiansand"'
+    '"KRISTIANSAND"'
+    '"Bergen"'
+    '"Stavanger"'
+    '"Trondheim"'
+    '"Tromsø"'
+    
+    # Organization numbers (examples of hardcoded ones)
+    '"989213598"'
+    '"999999999"'
+    '"888888888"'
+    '"777777777"'
+    
+    # Location-specific conditionals
+    'if.*kommune.*===.*"[0-9]'
+    'if.*kommuneNumber.*===.*"[0-9]'
+    'switch.*kommune'
+    'case.*"[0-9][0-9][0-9][0-9]"'
+    
+    # Fake data indicators
+    'TEST COMPANY'
+    'FAKE_'
+    'DUMMY_'
+    'MOCK_'
+    'synthetic.*data'
+    'fake.*address'
+    'placeholder.*company'
+)
+
+# Check staged files
+VIOLATIONS_FOUND=false
+
+for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+    # Check staged files for the pattern
+    if git diff --cached --name-only | xargs grep -l "$pattern" 2>/dev/null; then
+        echo "❌ VIOLATION: Found hardcoded pattern: $pattern"
+        echo "   Files:"
+        git diff --cached --name-only | xargs grep -l "$pattern" 2>/dev/null | sed 's/^/     /'
+        VIOLATIONS_FOUND=true
+    fi
+done
+
+# Additional checks for specific file types
+echo "🔍 Checking TypeScript/JavaScript files for hardcoded data..."
+
+# Check for hardcoded kommune mappings
+if git diff --cached --name-only | grep -E '\.(ts|js|tsx|jsx)$' | xargs grep -l "Record<string.*string" 2>/dev/null | xargs grep -l '"[0-9][0-9][0-9][0-9]"' 2>/dev/null; then
+    echo "❌ VIOLATION: Found hardcoded kommune mapping (Record<string, ...> with kommune numbers)"
+    VIOLATIONS_FOUND=true
+fi
+
+# Check for hardcoded postal code arrays
+if git diff --cached --name-only | grep -E '\.(ts|js|tsx|jsx)$' | xargs grep -l '\["[0-9][0-9][0-9][0-9]"\]' 2>/dev/null; then
+    echo "❌ VIOLATION: Found hardcoded postal code array"
+    VIOLATIONS_FOUND=true
+fi
+
+if [ "$VIOLATIONS_FOUND" = true ]; then
+    echo ""
+    echo "🚨 COMMIT BLOCKED: Hardcoded data detected!"
+    echo ""
+    echo "📋 CODING RULES VIOLATED:"
+    echo "   ❌ No hardcoded kommune numbers"
+    echo "   ❌ No hardcoded postal codes"  
+    echo "   ❌ No hardcoded city names"
+    echo "   ❌ No location-specific logic"
+    echo "   ❌ No fake/synthetic data"
+    echo ""
+    echo "✅ REQUIRED FIXES:"
+    echo "   • Use kommuneService.getAllKommuner() for kommune data"
+    echo "   • Use postalCodeService for postal codes"
+    echo "   • Make code generic for ANY kommune"
+    echo "   • Remove all hardcoded test data"
+    echo "   • Show 'No data available' instead of fake data"
+    echo ""
+    echo "📖 See CODING_RULES.md for details"
+    exit 1
+fi
+
+echo "✅ No hardcoded data violations found. Commit allowed."
+exit 0
+

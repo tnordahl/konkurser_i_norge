@@ -531,13 +531,16 @@ export class OptimizedCompanyService {
   }
 
   private async ensureKommuneExists(kommuneNumber: string) {
+    const kommuneService = (await import('./kommune-service')).kommuneService;
+    const kommuneInfo = kommuneService.getAllKommuner().find(k => k.number === kommuneNumber);
+    
     await prisma.kommune.upsert({
       where: { kommuneNumber },
       update: {},
       create: {
         kommuneNumber,
-        name: `Kommune ${kommuneNumber}`,
-        county: "Ukjent fylke",
+        name: kommuneInfo?.name || `Kommune ${kommuneNumber}`,
+        county: kommuneInfo?.county || "Ukjent fylke",
       },
     });
   }

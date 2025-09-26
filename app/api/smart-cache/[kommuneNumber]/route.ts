@@ -239,7 +239,7 @@ async function runIncrementalScan(
     "https://data.brreg.no/enhetsregisteret/api/enheter";
 
   // Get postal codes for this kommune
-  const targetPostalCodes = getKommunePostalCodes(kommuneNumber);
+  const targetPostalCodes = await getKommunePostalCodes(kommuneNumber);
 
   // OPTIMIZATION: Only scan first 2 pages for incremental updates
   const maxPages = 2; // Much faster than full scan
@@ -449,20 +449,29 @@ function generateSmartAlerts(
 }
 
 // Helper functions
-function getKommunePostalCodes(kommuneNumber: string): string[] {
-  const postalCodeMap: Record<string, string[]> = {
-    "4201": ["4950"], // Risør
-    "0301": ["0001", "0672"], // Oslo (partial)
-  };
-  return postalCodeMap[kommuneNumber] || [];
+async function getKommunePostalCodes(kommuneNumber: string): Promise<string[]> {
+  try {
+    const { postalCodeService } = await import('@/lib/postal-code-service');
+    const postalCodes = await postalCodeService.getPostalCodesForKommune(kommuneNumber);
+    return postalCodes.map(pc => pc.postalCode);
+  } catch (error) {
+    console.warn(`Failed to get postal codes for kommune ${kommuneNumber}:`, error);
+    return [];
+  }
 }
 
 function getKommuneNames(kommuneNumber: string): string[] {
-  const kommuneNameMap: Record<string, string[]> = {
-    "4201": ["Risør", "RISØR"],
-    "0301": ["Oslo", "OSLO"],
-  };
-  return kommuneNameMap[kommuneNumber] || [];
+  try {
+    const { kommuneService } = require('@/lib/kommune-service');
+    const kommune = kommuneService.getAllKommuner().find((k: any) => k.number === kommuneNumber);
+    if (kommune) {
+      return [kommune.name, kommune.name.toUpperCase()];
+    }
+    return [];
+  } catch (error) {
+    console.warn(`Failed to get kommune name for ${kommuneNumber}:`, error);
+    return [];
+  }
 }
 
 function formatAddress(addr: any): string {

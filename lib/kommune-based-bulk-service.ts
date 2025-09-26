@@ -543,13 +543,15 @@ export class KommuneBasedBulkService {
    */
   private async ensureKommuneExists(kommuneNumber: string): Promise<void> {
     try {
+      const kommuneInfo = kommuneService.getAllKommuner().find(k => k.number === kommuneNumber);
+      
       await prisma.kommune.upsert({
         where: { kommuneNumber },
         update: {},
         create: {
           kommuneNumber,
-          name: this.getKommuneName(kommuneNumber),
-          county: "Unknown", // Would be filled from kommune service
+          name: kommuneInfo?.name || this.getKommuneName(kommuneNumber),
+          county: kommuneInfo?.county || "Unknown",
         },
       });
     } catch (error) {
