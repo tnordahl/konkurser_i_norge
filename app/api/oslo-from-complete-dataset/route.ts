@@ -3,7 +3,7 @@ import { createReadStream } from "fs";
 import { createInterface } from "readline";
 import path from "path";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const filePath = searchParams.get("file") || "assets/enheter_alle.json";
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     let totalProcessed = 0;
     let kommuneCount = 0;
 
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       const fileStream = createReadStream(fullPath);
       const rl = createInterface({
         input: fileStream,

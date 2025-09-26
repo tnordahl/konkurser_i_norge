@@ -517,8 +517,4 @@ function formatAddress(addr: any): string {
   return parts.join(", ");
 }
 
-export {
-  performKommuneIntelligenceScan,
-  performDeepCompanyInvestigation,
-  storeCompanyIntelligence,
-};
+export { performDeepCompanyInvestigation, storeCompanyIntelligence };

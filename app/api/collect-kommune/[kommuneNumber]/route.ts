@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/database";
 import { delay } from "@/lib/config/api-delays";
-import { updateCollectionStatus } from "../../collection-status/[kommuneNumber]/route";
+import { updateCollectionStatus } from "@/lib/collection-status";
 
 /**
  * Unified Kommune Data Collection API

@@ -224,7 +224,10 @@ function analyzeMovementPatterns(movements: any[]) {
 
   movements.forEach(company => {
     company.movements.forEach((movement: any) => {
-      patterns.riskDistribution[movement.riskLevel]++;
+      const riskLevel = movement.riskLevel as 'high' | 'medium' | 'low';
+      if (riskLevel && patterns.riskDistribution[riskLevel] !== undefined) {
+        patterns.riskDistribution[riskLevel]++;
+      }
     });
   });
 

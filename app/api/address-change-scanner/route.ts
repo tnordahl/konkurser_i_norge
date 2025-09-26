@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
             isBankrupt: false, // Most are not bankrupt yet, just high risk
             fraudRiskLevel: pattern.riskLevel,
             suspiciousPatterns: pattern.fraudIndicators,
-            bankruptcyDate: null,
+            bankruptcyDate: undefined,
           };
 
           // Only add if not already in the list

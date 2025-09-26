@@ -126,7 +126,7 @@ async function analyzeDuplicates(kommuneNumber: string): Promise<DuplicateAnalys
   let duplicateRecords = 0;
   let duplicateGroupCount = 0;
 
-  for (const [key, records] of duplicateGroups.entries()) {
+  for (const [key, records] of Array.from(duplicateGroups.entries())) {
     if (records.length > 1) {
       duplicateGroupCount++;
       duplicateRecords += records.length - 1; // Keep one, remove the rest
@@ -199,7 +199,7 @@ async function removeDuplicates(kommuneNumber: string): Promise<number> {
   const idsToDelete: string[] = [];
   let groupsProcessed = 0;
 
-  for (const [key, records] of duplicateGroups.entries()) {
+  for (const [key, records] of Array.from(duplicateGroups.entries())) {
     if (records.length > 1) {
       groupsProcessed++;
       // Keep the first record, mark the rest for deletion

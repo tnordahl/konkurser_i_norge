@@ -179,7 +179,7 @@ function detectBankruptcy(company: any): BankruptcyRecord | null {
 
   // Method 5: Address pattern analysis
   if (company.addressHistory && company.addressHistory.length > 0) {
-    const recentMoves = company.addressHistory.filter((addr) => {
+    const recentMoves = company.addressHistory.filter((addr: any) => {
       const moveDate = new Date(addr.fromDate);
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);

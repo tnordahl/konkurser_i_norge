@@ -255,13 +255,9 @@ async function performMovementAnalysis(
         `📊 Consider alternative fraud detection methods that don't require address history`,
         `⏰ Start collecting address snapshots now to enable future movement analysis`,
       ],
-      dataLimitation: {
-        reason: "No historical address movement data available",
-        explanation:
-          "Companies only have current address records, not historical changes",
-        suggestedSolution:
-          "Implement time-series address collection to build real movement history",
-      },
+      // Note: No historical address movement data available
+      // Companies only have current address records, not historical changes
+      // Consider implementing time-series address collection to build real movement history
     };
   }
 

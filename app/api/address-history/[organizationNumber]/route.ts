@@ -97,9 +97,9 @@ export async function GET(
     }
 
     // Check for cross-kommune moves
-    const kommuneNumbers = [
-      ...new Set(addressHistory.map((h) => h.kommuneNumber).filter(Boolean)),
-    ];
+    const kommuneNumbers = Array.from(
+      new Set(addressHistory.map((h) => h.kommuneNumber).filter(Boolean))
+    );
     if (kommuneNumbers.length > 2) {
       suspiciousPatterns.push(
         `Multiple kommune moves: ${kommuneNumbers.length} different kommuner`

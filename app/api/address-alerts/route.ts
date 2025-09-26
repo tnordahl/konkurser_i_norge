@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       address: b.address,
       industry: b.industry,
       hasRecentAddressChange: b.hasRecentAddressChange,
-      previousAddresses: b.previousAddresses as any[],
+      // previousAddresses not available in bankruptcy model
       alertLevel: "HIGH", // All address changes are high priority
       fraudRisk: "SUSPECTED_ADDRESS_MANIPULATION",
     }));
