@@ -61,13 +61,17 @@ export class KommuneBasedBulkService {
     const pageSize = 5000;
     const startTime = Date.now();
 
-    console.log(`🚀 [${new Date().toISOString()}] Starting download for kommune ${kommuneNumber}...`);
+    console.log(
+      `🚀 [${new Date().toISOString()}] Starting download for kommune ${kommuneNumber}...`
+    );
 
     while (true) {
       const pageStartTime = Date.now();
       const url = `https://data.brreg.no/enhetsregisteret/api/enheter?kommunenummer=${kommuneNumber}&size=${pageSize}&page=${page}`;
 
-      console.log(`📥 [${new Date().toISOString()}] Fetching page ${page} for kommune ${kommuneNumber}...`);
+      console.log(
+        `📥 [${new Date().toISOString()}] Fetching page ${page} for kommune ${kommuneNumber}...`
+      );
       console.log(`🔗 URL: ${url}`);
 
       try {
@@ -82,8 +86,13 @@ export class KommuneBasedBulkService {
         console.log(`⏱️ API request took ${fetchTime}ms`);
 
         if (!response.ok) {
-          console.error(`❌ HTTP ${response.status} for kommune ${kommuneNumber} page ${page}`);
-          console.error(`❌ Response headers:`, Object.fromEntries(response.headers.entries()));
+          console.error(
+            `❌ HTTP ${response.status} for kommune ${kommuneNumber} page ${page}`
+          );
+          console.error(
+            `❌ Response headers:`,
+            Object.fromEntries(response.headers.entries())
+          );
           throw new Error(
             `Failed to download kommune ${kommuneNumber} page ${page}: ${response.status}`
           );
@@ -98,13 +107,19 @@ export class KommuneBasedBulkService {
 
         console.log(`📊 [Page ${page}] API Response Summary:`);
         console.log(`  ├─ Entities in response: ${entities.length}`);
-        console.log(`  ├─ Total pages available: ${data.page?.totalPages || 'unknown'}`);
-        console.log(`  ├─ Total elements: ${data.page?.totalElements || 'unknown'}`);
-        console.log(`  ├─ Current page size: ${data.page?.size || 'unknown'}`);
-        console.log(`  └─ Page number: ${data.page?.number || 'unknown'}`);
+        console.log(
+          `  ├─ Total pages available: ${data.page?.totalPages || "unknown"}`
+        );
+        console.log(
+          `  ├─ Total elements: ${data.page?.totalElements || "unknown"}`
+        );
+        console.log(`  ├─ Current page size: ${data.page?.size || "unknown"}`);
+        console.log(`  └─ Page number: ${data.page?.number || "unknown"}`);
 
         if (entities.length === 0) {
-          console.log(`✅ [${new Date().toISOString()}] No more entities for kommune ${kommuneNumber} on page ${page}`);
+          console.log(
+            `✅ [${new Date().toISOString()}] No more entities for kommune ${kommuneNumber} on page ${page}`
+          );
           break; // No more results
         }
 
@@ -114,31 +129,47 @@ export class KommuneBasedBulkService {
           console.log(`📋 Sample entity from page ${page}:`);
           console.log(`  ├─ Org number: ${sample.organisasjonsnummer}`);
           console.log(`  ├─ Name: ${sample.navn}`);
-          console.log(`  ├─ Business address: ${JSON.stringify(sample.forretningsadresse)}`);
-          console.log(`  ├─ Postal address: ${JSON.stringify(sample.postadresse)}`);
+          console.log(
+            `  ├─ Business address: ${JSON.stringify(sample.forretningsadresse)}`
+          );
+          console.log(
+            `  ├─ Postal address: ${JSON.stringify(sample.postadresse)}`
+          );
           console.log(`  └─ Bankruptcy: ${sample.konkurs || false}`);
         }
 
         allEntities.push(...entities);
         const totalTime = Date.now() - startTime;
         const avgTimePerEntity = totalTime / allEntities.length;
-        
-        console.log(`📊 [Progress] Downloaded ${entities.length} entities from page ${page}`);
+
+        console.log(
+          `📊 [Progress] Downloaded ${entities.length} entities from page ${page}`
+        );
         console.log(`  ├─ Total entities so far: ${allEntities.length}`);
-        console.log(`  ├─ Total time elapsed: ${Math.round(totalTime / 1000)}s`);
-        console.log(`  ├─ Average time per entity: ${Math.round(avgTimePerEntity)}ms`);
-        console.log(`  └─ Entities per second: ${Math.round(allEntities.length / (totalTime / 1000))}`);
+        console.log(
+          `  ├─ Total time elapsed: ${Math.round(totalTime / 1000)}s`
+        );
+        console.log(
+          `  ├─ Average time per entity: ${Math.round(avgTimePerEntity)}ms`
+        );
+        console.log(
+          `  └─ Entities per second: ${Math.round(allEntities.length / (totalTime / 1000))}`
+        );
 
         // Check if we've hit the API limit or there are no more pages
         const totalPages = data.page?.totalPages || 0;
         const totalElements = data.page?.totalElements || 0;
-        
+
         if (page >= totalPages - 1 || pageSize * (page + 2) > 10000) {
-          console.log(`⚠️ [${new Date().toISOString()}] Stopping due to API limit or end of pages:`);
+          console.log(
+            `⚠️ [${new Date().toISOString()}] Stopping due to API limit or end of pages:`
+          );
           console.log(`  ├─ Current page: ${page}`);
           console.log(`  ├─ Total pages: ${totalPages}`);
           console.log(`  ├─ Total elements available: ${totalElements}`);
-          console.log(`  └─ API limit check: ${pageSize * (page + 2)} > 10000 = ${pageSize * (page + 2) > 10000}`);
+          console.log(
+            `  └─ API limit check: ${pageSize * (page + 2)} > 10000 = ${pageSize * (page + 2) > 10000}`
+          );
           break;
         }
 
@@ -146,23 +177,33 @@ export class KommuneBasedBulkService {
 
         // Rate limiting between pages
         const delayMs = 1000; // Assuming 1 second delay
-        console.log(`⏳ [${new Date().toISOString()}] Waiting ${delayMs}ms before next request (page ${page})...`);
+        console.log(
+          `⏳ [${new Date().toISOString()}] Waiting ${delayMs}ms before next request (page ${page})...`
+        );
         await delay.betweenBronnøysundCalls();
-
       } catch (error) {
-        console.error(`❌ [${new Date().toISOString()}] Error fetching page ${page} for kommune ${kommuneNumber}:`, error);
+        console.error(
+          `❌ [${new Date().toISOString()}] Error fetching page ${page} for kommune ${kommuneNumber}:`,
+          error
+        );
         throw error;
       }
     }
 
     const totalTime = Date.now() - startTime;
-    console.log(`🎉 [${new Date().toISOString()}] Download complete for kommune ${kommuneNumber}:`);
+    console.log(
+      `🎉 [${new Date().toISOString()}] Download complete for kommune ${kommuneNumber}:`
+    );
     console.log(`  ├─ Total entities: ${allEntities.length}`);
     console.log(`  ├─ Total pages fetched: ${page + 1}`);
     console.log(`  ├─ Total time: ${Math.round(totalTime / 1000)}s`);
-    console.log(`  ├─ Average entities per page: ${Math.round(allEntities.length / (page + 1))}`);
-    console.log(`  └─ Overall rate: ${Math.round(allEntities.length / (totalTime / 1000))} entities/second`);
-    
+    console.log(
+      `  ├─ Average entities per page: ${Math.round(allEntities.length / (page + 1))}`
+    );
+    console.log(
+      `  └─ Overall rate: ${Math.round(allEntities.length / (totalTime / 1000))} entities/second`
+    );
+
     return allEntities;
   }
 
@@ -177,7 +218,9 @@ export class KommuneBasedBulkService {
     let processedCount = 0;
     const processingStartTime = Date.now();
 
-    console.log(`💾 [${new Date().toISOString()}] Starting to process ${entities.length} entities for kommune ${kommuneNumber}...`);
+    console.log(
+      `💾 [${new Date().toISOString()}] Starting to process ${entities.length} entities for kommune ${kommuneNumber}...`
+    );
 
     for (let i = 0; i < entities.length; i += batchSize) {
       const batchStartTime = Date.now();
@@ -185,13 +228,19 @@ export class KommuneBasedBulkService {
       const batchNumber = Math.floor(i / batchSize) + 1;
       const totalBatches = Math.ceil(entities.length / batchSize);
 
-      console.log(`📦 [${new Date().toISOString()}] Processing batch ${batchNumber}/${totalBatches} (${batch.length} entities)...`);
-      console.log(`  └─ Progress: ${Math.round((i / entities.length) * 100)}% complete`);
+      console.log(
+        `📦 [${new Date().toISOString()}] Processing batch ${batchNumber}/${totalBatches} (${batch.length} entities)...`
+      );
+      console.log(
+        `  └─ Progress: ${Math.round((i / entities.length) * 100)}% complete`
+      );
 
       try {
         // First, ensure the kommune exists in the database
         const kommuneStartTime = Date.now();
-        console.log(`🏘️ Ensuring kommune ${kommuneNumber} exists in database...`);
+        console.log(
+          `🏘️ Ensuring kommune ${kommuneNumber} exists in database...`
+        );
         await this.ensureKommuneExists(kommuneNumber);
         const kommuneTime = Date.now() - kommuneStartTime;
         console.log(`  └─ Kommune check took ${kommuneTime}ms`);
@@ -222,19 +271,23 @@ export class KommuneBasedBulkService {
         const mappingTime = Date.now() - mappingStartTime;
         console.log(`  └─ Data mapping took ${mappingTime}ms`);
 
-        console.log(`💾 [${new Date().toISOString()}] Saving batch ${batchNumber} to database...`);
+        console.log(
+          `💾 [${new Date().toISOString()}] Saving batch ${batchNumber} to database...`
+        );
 
         // Batch upsert with address history tracking
         const transactionStartTime = Date.now();
         await prisma.$transaction(async (tx) => {
-          for (const [index, company] of companyData.entries()) {
+          for (const [index, company] of Array.from(companyData.entries())) {
             const companyStartTime = Date.now();
-            
+
             // Only log every 10th company to reduce noise
             if (index % 10 === 0 || index === companyData.length - 1) {
-              console.log(`  📝 [${index + 1}/${companyData.length}] Processing: ${company.organizationNumber} (${company.name})`);
+              console.log(
+                `  📝 [${index + 1}/${companyData.length}] Processing: ${company.organizationNumber} (${company.name})`
+              );
             }
-            
+
             // Upsert company
             const savedCompany = await tx.company.upsert({
               where: { organizationNumber: company.organizationNumber },
@@ -246,7 +299,7 @@ export class KommuneBasedBulkService {
             const originalEntity = entities.find(
               (e) => e.organisasjonsnummer === company.organizationNumber
             );
-            
+
             await this.saveAddressHistory(
               tx,
               savedCompany.id,
@@ -255,57 +308,93 @@ export class KommuneBasedBulkService {
             );
 
             const companyTime = Date.now() - companyStartTime;
-            
+
             // Log timing for every 10th company
             if (index % 10 === 0 || index === companyData.length - 1) {
               console.log(`    └─ Company processing took ${companyTime}ms`);
             }
           }
         });
-        
+
         const transactionTime = Date.now() - transactionStartTime;
         processedCount += batch.length;
         const batchTime = Date.now() - batchStartTime;
         const totalTime = Date.now() - processingStartTime;
         const avgTimePerBatch = totalTime / batchNumber;
-        const estimatedTimeRemaining = avgTimePerBatch * (totalBatches - batchNumber);
+        const estimatedTimeRemaining =
+          avgTimePerBatch * (totalBatches - batchNumber);
 
-        console.log(`✅ [${new Date().toISOString()}] Batch ${batchNumber} completed successfully:`);
+        console.log(
+          `✅ [${new Date().toISOString()}] Batch ${batchNumber} completed successfully:`
+        );
         console.log(`  ├─ Entities processed: ${batch.length}`);
-        console.log(`  ├─ Total processed: ${processedCount}/${entities.length}`);
+        console.log(
+          `  ├─ Total processed: ${processedCount}/${entities.length}`
+        );
         console.log(`  ├─ Batch time: ${Math.round(batchTime / 1000)}s`);
-        console.log(`  ├─ Transaction time: ${Math.round(transactionTime / 1000)}s`);
-        console.log(`  ├─ Avg time per entity: ${Math.round(batchTime / batch.length)}ms`);
-        console.log(`  ├─ Progress: ${Math.round((processedCount / entities.length) * 100)}%`);
-        console.log(`  └─ ETA: ${Math.round(estimatedTimeRemaining / 1000)}s remaining`);
-        
+        console.log(
+          `  ├─ Transaction time: ${Math.round(transactionTime / 1000)}s`
+        );
+        console.log(
+          `  ├─ Avg time per entity: ${Math.round(batchTime / batch.length)}ms`
+        );
+        console.log(
+          `  ├─ Progress: ${Math.round((processedCount / entities.length) * 100)}%`
+        );
+        console.log(
+          `  └─ ETA: ${Math.round(estimatedTimeRemaining / 1000)}s remaining`
+        );
       } catch (error) {
-        console.error(`❌ [${new Date().toISOString()}] Failed to process batch ${batchNumber} for kommune ${kommuneNumber}:`, error);
+        console.error(
+          `❌ [${new Date().toISOString()}] Failed to process batch ${batchNumber} for kommune ${kommuneNumber}:`,
+          error
+        );
         console.error(`   ├─ Batch contained ${batch.length} entities`);
-        console.error(`   ├─ Error type: ${error instanceof Error ? error.constructor.name : typeof error}`);
-        console.error(`   └─ Error details: ${error instanceof Error ? error.message : error}`);
+        console.error(
+          `   ├─ Error type: ${error instanceof Error ? error.constructor.name : typeof error}`
+        );
+        console.error(
+          `   └─ Error details: ${error instanceof Error ? error.message : error}`
+        );
       }
     }
 
     const totalProcessingTime = Date.now() - processingStartTime;
-    console.log(`🎉 [${new Date().toISOString()}] Processing complete for kommune ${kommuneNumber}:`);
-    console.log(`  ├─ Entities processed: ${processedCount}/${entities.length}`);
-    console.log(`  ├─ Success rate: ${Math.round((processedCount / entities.length) * 100)}%`);
+    console.log(
+      `🎉 [${new Date().toISOString()}] Processing complete for kommune ${kommuneNumber}:`
+    );
+    console.log(
+      `  ├─ Entities processed: ${processedCount}/${entities.length}`
+    );
+    console.log(
+      `  ├─ Success rate: ${Math.round((processedCount / entities.length) * 100)}%`
+    );
     console.log(`  ├─ Total time: ${Math.round(totalProcessingTime / 1000)}s`);
-    console.log(`  ├─ Average per entity: ${Math.round(totalProcessingTime / processedCount)}ms`);
-    console.log(`  └─ Processing rate: ${Math.round(processedCount / (totalProcessingTime / 1000))} entities/second`);
-    
+    console.log(
+      `  ├─ Average per entity: ${Math.round(totalProcessingTime / processedCount)}ms`
+    );
+    console.log(
+      `  └─ Processing rate: ${Math.round(processedCount / (totalProcessingTime / 1000))} entities/second`
+    );
+
     // Collect postal codes for this kommune
     const postalStartTime = Date.now();
-    console.log(`📮 [${new Date().toISOString()}] Collecting postal codes for kommune ${kommuneNumber}...`);
+    console.log(
+      `📮 [${new Date().toISOString()}] Collecting postal codes for kommune ${kommuneNumber}...`
+    );
     try {
       await postalCodeService.collectPostalCodesForKommune(kommuneNumber);
       const postalTime = Date.now() - postalStartTime;
-      console.log(`✅ [${new Date().toISOString()}] Postal codes collected for kommune ${kommuneNumber} (took ${postalTime}ms)`);
+      console.log(
+        `✅ [${new Date().toISOString()}] Postal codes collected for kommune ${kommuneNumber} (took ${postalTime}ms)`
+      );
     } catch (error) {
-      console.error(`❌ [${new Date().toISOString()}] Failed to collect postal codes for kommune ${kommuneNumber}:`, error);
+      console.error(
+        `❌ [${new Date().toISOString()}] Failed to collect postal codes for kommune ${kommuneNumber}:`,
+        error
+      );
     }
-    
+
     return processedCount;
   }
 
@@ -552,9 +641,11 @@ export class KommuneBasedBulkService {
           });
         }
       }
-
     } catch (error) {
-      console.error(`    ❌ Failed to save address history for ${companyData.organizationNumber}:`, error);
+      console.error(
+        `    ❌ Failed to save address history for ${companyData.organizationNumber}:`,
+        error
+      );
       // Don't throw - address history is supplementary data
     }
   }

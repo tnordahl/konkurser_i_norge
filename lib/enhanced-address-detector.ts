@@ -1,6 +1,6 @@
 /**
  * Enhanced Address Change Detector
- * 
+ *
  * Uses postal code mapping and comprehensive address analysis
  * to accurately detect address changes and kommune movements
  */
@@ -44,17 +44,25 @@ export class EnhancedAddressDetector {
   /**
    * Analyze address changes for a company using postal code mapping
    */
-  async analyzeAddressChange(companyInfo: CompanyAddressInfo): Promise<AddressChangeResult> {
+  async analyzeAddressChange(
+    companyInfo: CompanyAddressInfo
+  ): Promise<AddressChangeResult> {
     const details: string[] = [];
-    
+
     try {
       // Extract current addresses
-      const currentBusiness = this.extractAddressInfo(companyInfo.currentBusinessAddress);
-      const currentPostal = this.extractAddressInfo(companyInfo.currentPostalAddress);
-      
+      const currentBusiness = this.extractAddressInfo(
+        companyInfo.currentBusinessAddress
+      );
+      const currentPostal = this.extractAddressInfo(
+        companyInfo.currentPostalAddress
+      );
+
       // Extract previous addresses from database
-      const previousAddresses = await this.getPreviousAddresses(companyInfo.organizationNumber);
-      
+      const previousAddresses = await this.getPreviousAddresses(
+        companyInfo.organizationNumber
+      );
+
       if (previousAddresses.length === 0) {
         details.push("No previous address history found");
         return {
@@ -83,7 +91,10 @@ export class EnhancedAddressDetector {
 
       // Analyze postal address changes (if different from business)
       let postalChange: AddressChangeResult | null = null;
-      if (currentPostal && this.isDifferentAddress(currentBusiness, currentPostal)) {
+      if (
+        currentPostal &&
+        this.isDifferentAddress(currentBusiness, currentPostal)
+      ) {
         postalChange = await this.compareAddresses(
           previousInfo,
           currentPostal,
@@ -92,8 +103,10 @@ export class EnhancedAddressDetector {
       }
 
       // Determine overall result
-      const primaryChange = businessChange.hasChanged ? businessChange : postalChange;
-      
+      const primaryChange = businessChange.hasChanged
+        ? businessChange
+        : postalChange;
+
       if (!primaryChange || !primaryChange.hasChanged) {
         details.push("No significant address changes detected");
         return {
@@ -106,11 +119,15 @@ export class EnhancedAddressDetector {
 
       details.push(...primaryChange.details);
       return primaryChange;
-
     } catch (error) {
-      console.error(`❌ Failed to analyze address change for ${companyInfo.organizationNumber}:`, error);
-      details.push(`Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
+      console.error(
+        `❌ Failed to analyze address change for ${companyInfo.organizationNumber}:`,
+        error
+      );
+      details.push(
+        `Analysis failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+
       return {
         hasChanged: false,
         changeType: "NO_CHANGE",
@@ -129,7 +146,7 @@ export class EnhancedAddressDetector {
     addressType: "business" | "postal"
   ): Promise<AddressChangeResult> {
     const details: string[] = [];
-    
+
     if (!current) {
       details.push(`No current ${addressType} address found`);
       return {
@@ -152,10 +169,12 @@ export class EnhancedAddressDetector {
     }
 
     // Determine kommune changes using postal codes
-    const fromKommune = previous.kommuneNumber || 
-      await postalCodeService.findKommuneForPostalCode(previous.postalCode);
-    const toKommune = current.kommuneNumber || 
-      await postalCodeService.findKommuneForPostalCode(current.postalCode);
+    const fromKommune =
+      previous.kommuneNumber ||
+      (await postalCodeService.findKommuneForPostalCode(previous.postalCode));
+    const toKommune =
+      current.kommuneNumber ||
+      (await postalCodeService.findKommuneForPostalCode(current.postalCode));
 
     let changeType: "WITHIN_KOMMUNE" | "BETWEEN_KOMMUNER" = "WITHIN_KOMMUNE";
     let confidence: "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
@@ -175,7 +194,9 @@ export class EnhancedAddressDetector {
       if (previous.postalCode !== current.postalCode) {
         changeType = "BETWEEN_KOMMUNER"; // Assume different postal codes = different kommuner
         confidence = "MEDIUM";
-        details.push(`Postal code change: ${previous.postalCode} → ${current.postalCode}`);
+        details.push(
+          `Postal code change: ${previous.postalCode} → ${current.postalCode}`
+        );
       } else {
         changeType = "WITHIN_KOMMUNE";
         confidence = "LOW";
@@ -183,7 +204,9 @@ export class EnhancedAddressDetector {
       }
     }
 
-    details.push(`${addressType} address: ${previous.address} → ${current.address}`);
+    details.push(
+      `${addressType} address: ${previous.address} → ${current.address}`
+    );
 
     return {
       hasChanged: true,
@@ -250,14 +273,16 @@ export class EnhancedAddressDetector {
   /**
    * Get previous addresses from database
    */
-  private async getPreviousAddresses(organizationNumber: string): Promise<any[]> {
+  private async getPreviousAddresses(
+    organizationNumber: string
+  ): Promise<any[]> {
     return await prisma.companyAddressHistory.findMany({
       where: {
         organizationNumber,
         isCurrentAddress: false, // Get historical addresses
       },
       orderBy: {
-        toDate: 'desc', // Most recent first
+        toDate: "desc", // Most recent first
       },
       take: 5, // Limit to recent history
     });
@@ -270,14 +295,16 @@ export class EnhancedAddressDetector {
     fromKommuneNumber: string,
     toKommuneNumber?: string,
     daysBack: number = 30
-  ): Promise<{
-    organizationNumber: string;
-    name: string;
-    fromAddress: string;
-    toAddress: string;
-    changeDate: Date;
-    confidence: string;
-  }[]> {
+  ): Promise<
+    {
+      organizationNumber: string;
+      name: string;
+      fromAddress: string;
+      toAddress: string;
+      changeDate: Date;
+      confidence: string;
+    }[]
+  > {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
@@ -312,9 +339,12 @@ export class EnhancedAddressDetector {
 
     for (const mover of movers) {
       const currentAddress = mover.company.addressHistory[0];
-      
+
       // Check if they moved to the target kommune (if specified)
-      if (toKommuneNumber && currentAddress?.kommuneNumber !== toKommuneNumber) {
+      if (
+        toKommuneNumber &&
+        currentAddress?.kommuneNumber !== toKommuneNumber
+      ) {
         continue;
       }
 
@@ -344,22 +374,36 @@ export class EnhancedAddressDetector {
     kommuneMovements: number;
     postalCodeCoverage: number;
   }> {
-    const whereClause = kommuneNumber ? {
-      OR: [
-        { kommuneNumber },
-        { company: { currentAddress: { contains: kommuneNumber } } },
-      ],
-    } : {};
+    const whereClause = kommuneNumber
+      ? {
+          OR: [
+            { kommuneNumber },
+            { company: { currentAddress: { contains: kommuneNumber } } },
+          ],
+        }
+      : {};
 
     const totalCompanies = await prisma.company.count(
-      kommuneNumber ? {
-        where: {
-          OR: [
-            { businessAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
-            { postalAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
-          ],
-        },
-      } : {}
+      kommuneNumber
+        ? {
+            where: {
+              OR: [
+                {
+                  businessAddress: {
+                    path: ["kommunenummer"],
+                    equals: kommuneNumber,
+                  },
+                },
+                {
+                  postalAddress: {
+                    path: ["kommunenummer"],
+                    equals: kommuneNumber,
+                  },
+                },
+              ],
+            },
+          }
+        : undefined
     );
 
     const companiesWithHistory = await prisma.company.count({
@@ -369,8 +413,15 @@ export class EnhancedAddressDetector {
         },
         ...(kommuneNumber && {
           OR: [
-            { businessAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
-            { postalAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
+            {
+              businessAddress: {
+                path: ["kommunenummer"],
+                equals: kommuneNumber,
+              },
+            },
+            {
+              postalAddress: { path: ["kommunenummer"], equals: kommuneNumber },
+            },
           ],
         }),
       },
@@ -394,7 +445,7 @@ export class EnhancedAddressDetector {
       },
     });
 
-    const postalCodeCoverage = kommuneNumber 
+    const postalCodeCoverage = kommuneNumber
       ? await prisma.kommunePostalCode.count({
           where: { kommuneNumber, isActive: true },
         })

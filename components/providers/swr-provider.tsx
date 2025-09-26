@@ -9,7 +9,7 @@ const swrConfig = {
     const response = await fetch(url)
     
     if (!response.ok) {
-      const error = new Error('An error occurred while fetching the data.')
+      const error = new Error('An error occurred while fetching the data.') as any
       // Attach extra info to the error object
       error.info = await response.json()
       error.status = response.status
@@ -36,7 +36,7 @@ const swrConfig = {
   loadingTimeout: 30 * 1000, // 30 seconds
   
   // Error handler
-  onError: (error, key) => {
+  onError: (error: any, key: any) => {
     console.error('SWR Error:', error, 'Key:', key)
     
     // Optional: Send to monitoring service
@@ -47,7 +47,7 @@ const swrConfig = {
   },
   
   // Success handler
-  onSuccess: (data, key, config) => {
+  onSuccess: (data: any, key: any, config: any) => {
     // Optional: Log successful data fetches in development
     if (process.env.NODE_ENV === 'development') {
       console.log('SWR Success:', key, 'Data length:', Array.isArray(data) ? data.length : 'N/A')

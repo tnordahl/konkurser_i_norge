@@ -5,15 +5,17 @@ import { prisma } from "@/lib/database";
 
 /**
  * Postal Codes Test API
- * 
+ *
  * Tests the enhanced postal code collection and address change detection
  */
 
 export async function POST(request: NextRequest) {
   try {
     const { action, kommuneNumber } = await request.json();
-    
-    console.log(`🧪 POSTAL CODES TEST: ${action} for kommune ${kommuneNumber || 'all'}...`);
+
+    console.log(
+      `🧪 POSTAL CODES TEST: ${action} for kommune ${kommuneNumber || "all"}...`
+    );
     const startTime = Date.now();
 
     let results: any = {};
@@ -23,22 +25,22 @@ export async function POST(request: NextRequest) {
         // Test postal code collection for Risør
         results = await testRisorPostalCodes();
         break;
-        
+
       case "collect-all":
         // Collect postal codes for all kommuner
         results = await testAllPostalCodes();
         break;
-        
+
       case "test-address-detection":
         // Test enhanced address change detection
         results = await testAddressDetection(kommuneNumber);
         break;
-        
+
       case "analyze-coverage":
         // Analyze postal code coverage
         results = await analyzePostalCodeCoverage();
         break;
-        
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -52,10 +54,9 @@ export async function POST(request: NextRequest) {
       processingTime: `${totalTime}ms`,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error("❌ Postal codes test failed:", error);
-    
+
     return NextResponse.json(
       {
         success: false,
@@ -70,22 +71,29 @@ export async function POST(request: NextRequest) {
 
 async function testRisorPostalCodes() {
   console.log("📮 Testing postal code collection for Risør...");
-  
+
   const risorKommuneNumber = "4201";
-  
+
   // Collect postal codes
-  const postalCodes = await postalCodeService.collectPostalCodesForKommune(risorKommuneNumber);
-  
+  const postalCodes =
+    await postalCodeService.collectPostalCodesForKommune(risorKommuneNumber);
+
   // Get stored postal codes
-  const storedCodes = await postalCodeService.getPostalCodesForKommune(risorKommuneNumber);
-  
+  const storedCodes =
+    await postalCodeService.getPostalCodesForKommune(risorKommuneNumber);
+
   // Get some sample companies from Risør
   const sampleCompanies = await prisma.company.findMany({
     where: {
       OR: [
         { currentCity: { contains: "Risør", mode: "insensitive" } },
-        { businessAddress: { path: ["kommunenummer"], equals: risorKommuneNumber } },
-      ]
+        {
+          businessAddress: {
+            path: ["kommunenummer"],
+            equals: risorKommuneNumber,
+          },
+        },
+      ],
     },
     take: 3,
     select: {
@@ -95,7 +103,7 @@ async function testRisorPostalCodes() {
       currentPostalCode: true,
       businessAddress: true,
       postalAddress: true,
-    }
+    },
   });
 
   return {
@@ -104,7 +112,7 @@ async function testRisorPostalCodes() {
     postalCodesCollected: postalCodes.length,
     postalCodesStored: storedCodes.length,
     postalCodes: storedCodes.slice(0, 10), // Show first 10
-    sampleCompanies: sampleCompanies.map(company => ({
+    sampleCompanies: sampleCompanies.map((company) => ({
       organizationNumber: company.organizationNumber,
       name: company.name,
       currentAddress: company.currentAddress,
@@ -116,29 +124,34 @@ async function testRisorPostalCodes() {
       `📊 Collected ${postalCodes.length} postal codes for Risør`,
       `💾 Stored ${storedCodes.length} postal codes in database`,
       `🏢 Found ${sampleCompanies.length} sample companies`,
-      postalCodes.length > 0 ? "✅ Postal code collection is working!" : "❌ No postal codes collected",
+      postalCodes.length > 0
+        ? "✅ Postal code collection is working!"
+        : "❌ No postal codes collected",
     ],
   };
 }
 
 async function testAllPostalCodes() {
   console.log("📮 Testing postal code collection for all kommuner...");
-  
+
   // Get initial stats
   const initialStats = await postalCodeService.getPostalCodeStats();
-  
+
   // Collect postal codes for all kommuner
   await postalCodeService.collectAllPostalCodes();
-  
+
   // Get final stats
   const finalStats = await postalCodeService.getPostalCodeStats();
-  
+
   return {
     initialStats,
     finalStats,
     improvement: {
-      newKommuner: finalStats.kommunerWithPostalCodes - initialStats.kommunerWithPostalCodes,
-      newPostalCodes: finalStats.totalPostalCodes - initialStats.totalPostalCodes,
+      newKommuner:
+        finalStats.kommunerWithPostalCodes -
+        initialStats.kommunerWithPostalCodes,
+      newPostalCodes:
+        finalStats.totalPostalCodes - initialStats.totalPostalCodes,
     },
     insights: [
       `📊 Processed ${finalStats.totalKommuner} total kommuner`,
@@ -150,8 +163,10 @@ async function testAllPostalCodes() {
 }
 
 async function testAddressDetection(kommuneNumber?: string) {
-  console.log(`🔍 Testing address change detection for kommune ${kommuneNumber || 'all'}...`);
-  
+  console.log(
+    `🔍 Testing address change detection for kommune ${kommuneNumber || "all"}...`
+  );
+
   // Get some companies with address history
   const companiesWithHistory = await prisma.company.findMany({
     where: {
@@ -160,7 +175,9 @@ async function testAddressDetection(kommuneNumber?: string) {
       },
       ...(kommuneNumber && {
         OR: [
-          { businessAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
+          {
+            businessAddress: { path: ["kommunenummer"], equals: kommuneNumber },
+          },
           { postalAddress: { path: ["kommunenummer"], equals: kommuneNumber } },
         ],
       }),
@@ -168,7 +185,7 @@ async function testAddressDetection(kommuneNumber?: string) {
     take: 5,
     include: {
       addressHistory: {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 3,
       },
     },
@@ -183,7 +200,7 @@ async function testAddressDetection(kommuneNumber?: string) {
         name: company.name,
         currentBusinessAddress: company.businessAddress,
         currentPostalAddress: company.postalAddress,
-        registrationDate: company.registrationDate,
+        registrationDate: company.registrationDate || undefined,
       });
 
       analysisResults.push({
@@ -198,7 +215,8 @@ async function testAddressDetection(kommuneNumber?: string) {
   }
 
   // Get overall stats
-  const stats = await enhancedAddressDetector.getAddressChangeStats(kommuneNumber);
+  const stats =
+    await enhancedAddressDetector.getAddressChangeStats(kommuneNumber);
 
   return {
     kommuneNumber: kommuneNumber || "all",
@@ -218,12 +236,12 @@ async function testAddressDetection(kommuneNumber?: string) {
 
 async function analyzePostalCodeCoverage() {
   console.log("📊 Analyzing postal code coverage...");
-  
+
   const stats = await postalCodeService.getPostalCodeStats();
-  
+
   // Get top kommuner by postal code count
   const topKommuner = await prisma.kommunePostalCode.groupBy({
-    by: ['kommuneNumber'],
+    by: ["kommuneNumber"],
     _count: {
       postalCode: true,
     },
@@ -232,7 +250,7 @@ async function analyzePostalCodeCoverage() {
     },
     orderBy: {
       _count: {
-        postalCode: 'desc',
+        postalCode: "desc",
       },
     },
     take: 10,
@@ -264,24 +282,28 @@ async function analyzePostalCodeCoverage() {
 
   return {
     overallStats: stats,
-    topKommunerByPostalCodes: topKommuner.map(k => ({
+    topKommunerByPostalCodes: topKommuner.map((k) => ({
       kommuneNumber: k.kommuneNumber,
       postalCodeCount: k._count.postalCode,
     })),
-    kommunerNeedingPostalCodes: kommunerWithoutCodes.map(k => ({
+    kommunerNeedingPostalCodes: kommunerWithoutCodes.map((k) => ({
       kommuneNumber: k.kommuneNumber,
       name: k.name,
       companyCount: k._count.companies,
     })),
     coverage: {
-      percentage: stats.totalKommuner > 0 
-        ? Math.round((stats.kommunerWithPostalCodes / stats.totalKommuner) * 100)
-        : 0,
-      status: stats.kommunerWithPostalCodes > stats.totalKommuner * 0.8 
-        ? "EXCELLENT" 
-        : stats.kommunerWithPostalCodes > stats.totalKommuner * 0.5 
-        ? "GOOD" 
-        : "NEEDS_IMPROVEMENT",
+      percentage:
+        stats.totalKommuner > 0
+          ? Math.round(
+              (stats.kommunerWithPostalCodes / stats.totalKommuner) * 100
+            )
+          : 0,
+      status:
+        stats.kommunerWithPostalCodes > stats.totalKommuner * 0.8
+          ? "EXCELLENT"
+          : stats.kommunerWithPostalCodes > stats.totalKommuner * 0.5
+            ? "GOOD"
+            : "NEEDS_IMPROVEMENT",
     },
     insights: [
       `📊 ${stats.kommunerWithPostalCodes}/${stats.totalKommuner} kommuner have postal codes (${Math.round((stats.kommunerWithPostalCodes / stats.totalKommuner) * 100)}%)`,
@@ -297,7 +319,7 @@ export async function GET(request: NextRequest) {
   try {
     // Get current postal code statistics
     const stats = await postalCodeService.getPostalCodeStats();
-    
+
     return NextResponse.json({
       success: true,
       currentStats: stats,
@@ -310,7 +332,6 @@ export async function GET(request: NextRequest) {
       usage: "POST with { action: 'collect-risor' } or other actions",
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error("❌ Failed to get postal codes status:", error);
     return NextResponse.json(

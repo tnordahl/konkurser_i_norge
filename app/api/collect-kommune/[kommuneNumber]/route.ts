@@ -592,7 +592,7 @@ async function collectPostalCodes(entities: any[], kommune: any) {
 
   // Save postal codes to database
   let postalCodesCollected = 0;
-  for (const [postalCode, city] of postalCodeMap.entries()) {
+  for (const [postalCode, city] of Array.from(postalCodeMap.entries())) {
     await prisma.kommunePostalCode.upsert({
       where: {
         kommuneNumber_postalCode: {

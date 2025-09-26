@@ -77,7 +77,7 @@ export function getInvestigationPriority(
   riskLevel: RiskLevel,
   additionalFactors: number = 0
 ): number {
-  let priority = INVESTIGATION_PRIORITY.ROUTINE;
+  let priority: number = INVESTIGATION_PRIORITY.ROUTINE;
 
   switch (riskLevel) {
     case "CRITICAL":

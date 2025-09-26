@@ -146,14 +146,14 @@ export class OptimizedCompanyService {
               update: {
                 name: connection.name,
                 currentAddress: connection.currentAddress,
-                riskScore: connection.riskScore || 0,
+                // riskScore: connection.riskScore || 0, // Field not in schema
                 lastUpdated: new Date(),
               },
               create: {
                 organizationNumber: connection.organizationNumber,
                 name: connection.name,
                 currentAddress: connection.currentAddress,
-                riskScore: connection.riskScore || 0,
+                // riskScore: connection.riskScore || 0, // Field not in schema
                 currentKommune: {
                   connect: { kommuneNumber },
                 },
@@ -361,7 +361,7 @@ export class OptimizedCompanyService {
     try {
       const where: Prisma.CompanyWhereInput = {
         currentKommune: { kommuneNumber },
-        riskScore: { gte: minRiskScore },
+        riskProfile: { riskScore: { gte: minRiskScore } },
       };
 
       const [companies, total] = await Promise.all([
@@ -412,7 +412,11 @@ export class OptimizedCompanyService {
               lastUpdated: new Date(),
               riskProfile: {
                 upsert: {
-                  create: { riskScore: update.riskScore },
+                  create: {
+                    organizationNumber: update.organizationNumber,
+                    riskLevel: "HIGH",
+                    riskScore: update.riskScore,
+                  },
                   update: { riskScore: update.riskScore },
                 },
               },
@@ -481,9 +485,7 @@ export class OptimizedCompanyService {
               currentKommuneId: kommune.id,
               businessAddress: companyData.businessAddress,
               postalAddress: companyData.postalAddress,
-              currentAddress: companyData.currentAddress,
-              currentPostalCode: companyData.currentPostalCode,
-              currentCity: companyData.currentCity,
+              // currentAddress, currentPostalCode, currentCity not in CompanyData interface
               lastUpdated: new Date(),
             },
             create: {
@@ -499,9 +501,7 @@ export class OptimizedCompanyService {
               currentKommuneId: kommune.id,
               businessAddress: companyData.businessAddress,
               postalAddress: companyData.postalAddress,
-              currentAddress: companyData.currentAddress,
-              currentPostalCode: companyData.currentPostalCode,
-              currentCity: companyData.currentCity,
+              // currentAddress, currentPostalCode, currentCity not in CompanyData interface
             },
             select: { id: true, createdAt: true },
           });

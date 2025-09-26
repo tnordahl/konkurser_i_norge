@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     // Step 2: Analyze each company for suspicious patterns
     for (const company of companiesWithHistory) {
-      await delay(50); // Respect API limits
+      await delay.standardProcessing(); // Respect API limits
 
       const analysis = await analyzeCompanyForEscapePatterns(
         company,

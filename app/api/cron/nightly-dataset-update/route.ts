@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
     const result = await nightlyDatasetService.runNightlyUpdate();
 
     return NextResponse.json({
-      success: true,
       message: "Nightly dataset update completed",
       ...result,
       timestamp: new Date().toISOString(),
@@ -57,4 +56,3 @@ export async function GET() {
     );
   }
 }
-

@@ -226,7 +226,7 @@ async function getHighRiskCompanies(kommuneNumber: string): Promise<
     investigationPriority: number;
   }>
 > {
-  const companies = [];
+  const companies: any[] = [];
 
   // Generic high-risk company discovery - no hardcoded cases
   // TODO: Implement dynamic company discovery based on:

@@ -136,7 +136,7 @@ async function findEscapedBankruptcies(kommuneNumber: string) {
             // Continue with next company if one fails
             console.warn(
               `Could not check history for ${enhet.organisasjonsnummer}:`,
-              error.message
+              error instanceof Error ? error.message : String(error)
             );
           }
         }

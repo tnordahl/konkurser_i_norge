@@ -314,6 +314,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const kommuneNumber = searchParams.get("kommune") || "0301"; // Default to Oslo
+
   return NextResponse.json({
     success: true,
     kommuneNumber,
@@ -490,8 +493,6 @@ async function processAndSaveEntities(
                 null,
               businessAddress: entity.forretningsadresse || null,
               postalAddress: entity.postadresse || null,
-              isBankrupt: false,
-              riskScore: 0,
               lastUpdated: new Date(),
             },
           });
@@ -540,34 +541,42 @@ async function saveAddressHistory(
 
   // Business address
   if (entity.forretningsadresse) {
-    await prisma.companyAddressHistory.upsert({
-      where: {
-        companyId_addressType_isCurrentAddress: {
+    const existingBusinessAddress =
+      await prisma.companyAddressHistory.findFirst({
+        where: {
           companyId,
           addressType: "business",
           isCurrentAddress: true,
         },
-      },
-      update: {
-        address: formatAddress(entity.forretningsadresse),
-        postalCode: entity.forretningsadresse.postnummer || null,
-        city: entity.forretningsadresse.poststed || null,
-        kommuneNumber: kommune.kommuneNumber,
-        kommuneName: kommune.name,
-      },
-      create: {
-        companyId,
-        organizationNumber: entity.organisasjonsnummer,
-        addressType: "business",
-        address: formatAddress(entity.forretningsadresse),
-        postalCode: entity.forretningsadresse.postnummer || null,
-        city: entity.forretningsadresse.poststed || null,
-        kommuneNumber: kommune.kommuneNumber,
-        kommuneName: kommune.name,
-        fromDate: new Date(),
-        isCurrentAddress: true,
-      },
-    });
+      });
+
+    if (existingBusinessAddress) {
+      await prisma.companyAddressHistory.update({
+        where: { id: existingBusinessAddress.id },
+        data: {
+          address: formatAddress(entity.forretningsadresse),
+          postalCode: entity.forretningsadresse.postnummer || null,
+          city: entity.forretningsadresse.poststed || null,
+          kommuneNumber: kommune.kommuneNumber,
+          kommuneName: kommune.name,
+        },
+      });
+    } else {
+      await prisma.companyAddressHistory.create({
+        data: {
+          companyId,
+          organizationNumber: entity.organisasjonsnummer,
+          addressType: "business",
+          address: formatAddress(entity.forretningsadresse),
+          postalCode: entity.forretningsadresse.postnummer || null,
+          city: entity.forretningsadresse.poststed || null,
+          kommuneNumber: kommune.kommuneNumber,
+          kommuneName: kommune.name,
+          fromDate: new Date(),
+          isCurrentAddress: true,
+        },
+      });
+    }
     count++;
   }
 
@@ -577,34 +586,41 @@ async function saveAddressHistory(
     JSON.stringify(entity.postadresse) !==
       JSON.stringify(entity.forretningsadresse)
   ) {
-    await prisma.companyAddressHistory.upsert({
+    const existingPostalAddress = await prisma.companyAddressHistory.findFirst({
       where: {
-        companyId_addressType_isCurrentAddress: {
-          companyId,
-          addressType: "postal",
-          isCurrentAddress: true,
-        },
-      },
-      update: {
-        address: formatAddress(entity.postadresse),
-        postalCode: entity.postadresse.postnummer || null,
-        city: entity.postadresse.poststed || null,
-        kommuneNumber: kommune.kommuneNumber,
-        kommuneName: kommune.name,
-      },
-      create: {
         companyId,
-        organizationNumber: entity.organisasjonsnummer,
         addressType: "postal",
-        address: formatAddress(entity.postadresse),
-        postalCode: entity.postadresse.postnummer || null,
-        city: entity.postadresse.poststed || null,
-        kommuneNumber: kommune.kommuneNumber,
-        kommuneName: kommune.name,
-        fromDate: new Date(),
         isCurrentAddress: true,
       },
     });
+
+    if (existingPostalAddress) {
+      await prisma.companyAddressHistory.update({
+        where: { id: existingPostalAddress.id },
+        data: {
+          address: formatAddress(entity.postadresse),
+          postalCode: entity.postadresse.postnummer || null,
+          city: entity.postadresse.poststed || null,
+          kommuneNumber: kommune.kommuneNumber,
+          kommuneName: kommune.name,
+        },
+      });
+    } else {
+      await prisma.companyAddressHistory.create({
+        data: {
+          companyId,
+          organizationNumber: entity.organisasjonsnummer,
+          addressType: "postal",
+          address: formatAddress(entity.postadresse),
+          postalCode: entity.postadresse.postnummer || null,
+          city: entity.postadresse.poststed || null,
+          kommuneNumber: kommune.kommuneNumber,
+          kommuneName: kommune.name,
+          fromDate: new Date(),
+          isCurrentAddress: true,
+        },
+      });
+    }
     count++;
   }
 

@@ -183,7 +183,7 @@ async function processMinimalEntities(
   console.log(`✅ Kommune ensured with ID: ${kommune.id}`);
 
   // Process each entity
-  for (const [index, entity] of entities.entries()) {
+  for (const [index, entity] of Array.from(entities.entries())) {
     try {
       console.log(
         `📝 [${index + 1}/${entities.length}] Processing: ${entity.organisasjonsnummer} (${entity.navn})`

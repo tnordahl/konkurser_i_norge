@@ -522,10 +522,10 @@ export async function fetchBankruptcyDataFromExternalAPI(
                 isShellCompanySuspicious: isShellCompanySuspicious,
                 registrationDate: registrationDate
                   ? registrationDate.toISOString().split("T")[0]
-                  : null,
+                  : undefined,
                 // **NEW: Original company vs bankruptcy estate info**
-                originalCompany: originalCompany,
-                konkursbo: konkursboInfo,
+                originalCompany: originalCompany || undefined,
+                konkursbo: konkursboInfo || undefined,
               });
 
               if (addressHistory.hasRecentAddressChange) {
@@ -560,7 +560,7 @@ export async function fetchBankruptcyDataFromExternalAPI(
     return bankruptcies;
   } catch (error) {
     console.error("❌ Failed to fetch bankruptcy data from API:", error);
-    throw new Error(`Failed to fetch bankruptcy data: ${error.message}`);
+    throw new Error(`Failed to fetch bankruptcy data: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

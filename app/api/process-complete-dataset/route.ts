@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
       await completeDatasetProcessor.processCompleteDataset(fullPath);
 
     return NextResponse.json({
-      success: true,
       message: "Complete dataset processing finished",
       file: targetFile,
       ...result,
@@ -75,4 +74,3 @@ export async function GET() {
     );
   }
 }
-

@@ -384,7 +384,7 @@ export class IncrementalScanner {
           organizationNumber: result.organizationNumber,
           name: result.companyName,
           currentAddress: result.currentAddress,
-          riskScore: 50, // Medium risk for historical connections
+          // riskScore: 50, // Medium risk for historical connections - field not in schema
           lastUpdated: new Date(),
         },
       });
@@ -481,11 +481,11 @@ export class IncrementalScanner {
         name: alert.company.name,
         organizationNumber: alert.company.organizationNumber,
         currentAddress: alert.company.currentAddress,
-        riskScore: alert.company.riskScore,
+        riskScore: 0, // riskProfile not included in query
         connection: {
-          type: alert.metadata?.connectionType,
+          type: (alert.metadata as any)?.connectionType || "unknown",
           evidence: alert.description,
-          confidence: alert.metadata?.confidence,
+          confidence: (alert.metadata as any)?.confidence || "medium",
           discoveredAt: alert.triggeredAt,
         },
         riskAlerts: [alert],

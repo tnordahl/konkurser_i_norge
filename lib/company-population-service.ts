@@ -143,7 +143,7 @@ export class CompanyPopulationService {
 
           // Delay between batches to avoid overwhelming the API
           if (delayBetweenBatches > 0 && currentPage < endPage) {
-            await delay(delayBetweenBatches);
+            await delay.betweenApiBatches();
           }
         } catch (error) {
           console.error(`❌ Error processing page ${currentPage}:`, error);

@@ -125,7 +125,9 @@ async function scanKommuneForNewCompanies(
   let errors = 0;
 
   try {
-    const kommune = kommuneService.getKommuneByNumber(kommuneNumber);
+    const kommune = kommuneService
+      .getAllKommuner()
+      .find((k) => k.number === kommuneNumber);
     if (!kommune) {
       throw new Error(`Unknown kommune: ${kommuneNumber}`);
     }
@@ -139,10 +141,9 @@ async function scanKommuneForNewCompanies(
       (
         await prisma.company.findMany({
           where: {
-            OR: [
-              { currentKommuneId: kommuneNumber },
-              { currentKommuneId: kommune.id },
-            ],
+            currentKommune: {
+              kommuneNumber: kommuneNumber,
+            },
           },
           select: { organizationNumber: true },
         })

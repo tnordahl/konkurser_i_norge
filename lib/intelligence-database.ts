@@ -229,7 +229,7 @@ async function findEscapedCompanies(kommuneNumber: string): Promise<any[]> {
   // 2. For each service, find their clients nationwide
   // 3. Flag clients that are outside the kommune but use services inside
 
-  const escapedCompanies = [];
+  const escapedCompanies: any[] = [];
 
   // Generic escaped company discovery - no hardcoded cases
   // TODO: Implement dynamic discovery based on:

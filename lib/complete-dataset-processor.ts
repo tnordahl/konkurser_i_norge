@@ -227,21 +227,21 @@ export class CompleteDatasetProcessor {
                   currentAddress: company.currentAddress,
                   currentPostalCode: company.currentPostalCode,
                   currentCity: company.currentCity,
-                  currentKommuneNumber: company.currentKommuneNumber,
+                  // currentKommuneNumber field doesn't exist in schema - skipping
                   businessAddress: company.businessAddress,
-                  businessPostalCode: company.businessPostalCode,
-                  businessCity: company.businessCity,
-                  businessKommuneNumber: company.businessKommuneNumber,
+                  // businessPostalCode field doesn't exist in schema - skipping
+                  // businessCity field doesn't exist in schema - skipping
+                  // businessKommuneNumber field doesn't exist in schema - skipping
                   registrationDate: company.registrationDate,
-                  isVatRegistered: company.isVatRegistered,
-                  primaryIndustryCode: company.primaryIndustryCode,
-                  primaryIndustryDescription:
-                    company.primaryIndustryDescription,
+                  // isVatRegistered field doesn't exist in schema - skipping
+                  industryCode: company.primaryIndustryCode,
+                  industry: company.primaryIndustryDescription,
                   employeeCount: company.employeeCount,
-                  isBankrupt: company.isBankrupt,
-                  isUnderLiquidation: company.isUnderLiquidation,
-                  isUnderForcedLiquidation: company.isUnderForcedLiquidation,
-                  riskScore: company.riskScore,
+                  // isBankrupt field doesn't exist in schema - using status instead
+                  status: company.isBankrupt ? "BANKRUPTCY" : "ACTIVE",
+                  // isUnderLiquidation field doesn't exist in schema - skipping
+                  // isUnderForcedLiquidation field doesn't exist in schema - skipping
+                  // riskScore field doesn't exist in schema - skipping
                   lastUpdated: new Date(),
                 },
                 create: company,
@@ -399,10 +399,12 @@ export class CompleteDatasetProcessor {
       if (response.headers.get("content-encoding") === "gzip") {
         const { createGunzip } = await import("zlib");
         const { pipeline } = await import("stream/promises");
+        const { Readable } = await import("stream");
         const gunzip = createGunzip();
 
-        // Stream and decompress
-        await pipeline(response.body!, gunzip, fs.createWriteStream(filename));
+        // Convert Web API ReadableStream to Node.js stream and decompress
+        const nodeStream = Readable.fromWeb(response.body as any);
+        await pipeline(nodeStream, gunzip, fs.createWriteStream(filename));
         console.log(`✅ Downloaded and decompressed to: ${filename}`);
       } else {
         data = await response.text();

@@ -148,8 +148,11 @@ async function getCachedConnections(
       id: conn.organizationNumber, // Use org number as ID for now
       organizationNumber: conn.organizationNumber,
       name: conn.name,
-      currentAddress: conn.currentAddress,
-      connection: conn.connection,
+      currentAddress: conn.currentAddress || "Unknown address",
+      connection: {
+        ...conn.connection,
+        discoveredAt: conn.connection.discoveredAt.toISOString(),
+      },
       riskScore: conn.riskScore || 0,
       riskAlerts:
         conn.riskAlerts?.map((alert) => ({
@@ -369,8 +372,13 @@ async function saveConnectionsToCache(
     const connectionData: CompanyConnectionData[] = connections.map((conn) => ({
       organizationNumber: conn.organizationNumber,
       name: conn.name,
-      currentAddress: conn.currentAddress,
-      connection: conn.connection,
+      currentAddress: conn.currentAddress || "Unknown address",
+      connection: {
+        ...conn.connection,
+        confidence:
+          (conn.connection.confidence as "HIGH" | "MEDIUM" | "LOW") || "MEDIUM",
+        discoveredAt: new Date(conn.connection.discoveredAt),
+      },
       riskScore: conn.riskScore,
     }));
 

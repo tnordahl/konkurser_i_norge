@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         ...result,
         totalTime: `${totalTime}ms`,
         totalChanges,
-        efficiency: result.efficiency || {
+        efficiency: {
           entitiesPerSecond: Math.round(totalChanges / (totalTime / 1000)),
           kommunerPerMinute: Math.round(
             (result.successfulKommuner / (totalTime / 1000)) * 60
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
 
     // Get bankruptcy statistics
     const bankruptCompanies = await prisma.company.count({
-      where: { isBankrupt: true },
+      where: { status: "BANKRUPTCY" },
     });
 
     return NextResponse.json({

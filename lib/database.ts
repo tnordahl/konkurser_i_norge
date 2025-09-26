@@ -98,8 +98,8 @@ export async function getAllCompaniesFromDB(
       companyName: c.name,
       organizationNumber: c.organizationNumber,
       bankruptcyDate: "", // No bankruptcyDate field in new schema
-      address: c.currentAddress,
-      industry: c.industry,
+      address: c.currentAddress || undefined,
+      industry: c.industry || undefined,
       hasRecentAddressChange: false, // TODO: Calculate from address history
       lifespanInDays: c.registrationDate
         ? Math.floor(
@@ -109,8 +109,8 @@ export async function getAllCompaniesFromDB(
         : 0,
       isShellCompanySuspicious: false, // TODO: Calculate from risk profile
       registrationDate: c.registrationDate?.toISOString().split("T")[0],
-      originalCompany: null, // Not applicable for new schema
-      konkursbo: null, // TODO: Add konkursbo support if needed
+      originalCompany: undefined, // Not applicable for new schema
+      konkursbo: undefined, // TODO: Add konkursbo support if needed
     }));
   } catch (error) {
     console.error(
@@ -160,8 +160,8 @@ export async function getBankruptciesForKommune(
       companyName: c.name,
       organizationNumber: c.organizationNumber,
       bankruptcyDate: "", // No bankruptcyDate field in new schema
-      address: c.currentAddress,
-      industry: c.industry,
+      address: c.currentAddress || undefined,
+      industry: c.industry || undefined,
       hasRecentAddressChange: false, // TODO: Calculate from address history
       lifespanInDays: c.registrationDate
         ? Math.floor(
@@ -171,8 +171,8 @@ export async function getBankruptciesForKommune(
         : 0,
       isShellCompanySuspicious: false, // TODO: Calculate from risk profile
       registrationDate: c.registrationDate?.toISOString().split("T")[0],
-      originalCompany: null, // Not applicable for new schema
-      konkursbo: null, // TODO: Add konkursbo support if needed
+      originalCompany: undefined, // Not applicable for new schema
+      konkursbo: undefined, // TODO: Add konkursbo support if needed
     }));
   } catch (error) {
     console.error(

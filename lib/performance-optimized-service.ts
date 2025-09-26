@@ -76,17 +76,17 @@ export class PerformanceOptimizedService {
     // Get company counts efficiently
     const kommuneNumbers = kommuner.map((k) => k.kommuneNumber);
     const companyCounts = await prisma.company.groupBy({
-      by: ["currentKommuneNumber"],
+      by: ["currentKommuneId"],
       where: {
-        currentKommuneNumber: { in: kommuneNumbers },
+        currentKommune: { kommuneNumber: { in: kommuneNumbers } },
       },
       _count: { organizationNumber: true },
     });
 
     const companyCountMap = new Map(
       companyCounts.map((c) => [
-        c.currentKommuneNumber,
-        c._count.organizationNumber,
+        c.currentKommuneId,
+        c._count?.organizationNumber || 0,
       ])
     );
 
@@ -132,7 +132,7 @@ export class PerformanceOptimizedService {
     const companies = await prisma.company.findMany({
       where: {
         OR: [
-          { currentKommuneNumber: kommuneNumber },
+          { currentKommune: { kommuneNumber: kommuneNumber } },
           {
             addressHistory: {
               some: {
@@ -261,7 +261,7 @@ export class PerformanceOptimizedService {
             },
           },
         },
-        orderBy: [{ riskScore: "desc" }, { lastUpdated: "desc" }],
+        orderBy: [{ lastUpdated: "desc" }],
       }),
       prisma.company.count({ where }),
     ]);
@@ -314,7 +314,7 @@ export class PerformanceOptimizedService {
           },
         },
       },
-      orderBy: [{ riskScore: "desc" }, { lastUpdated: "desc" }],
+      orderBy: [{ lastUpdated: "desc" }],
     });
 
     cache.set(cacheKey, companies);
@@ -378,7 +378,7 @@ export class PerformanceOptimizedService {
   // Clear cache when needed
   clearCache(pattern?: string): void {
     if (pattern) {
-      for (const key of cache.keys()) {
+      for (const key of Array.from(cache.keys())) {
         if (key.includes(pattern)) {
           cache.delete(key);
         }
@@ -390,5 +390,3 @@ export class PerformanceOptimizedService {
 }
 
 export const performanceService = new PerformanceOptimizedService();
-
-

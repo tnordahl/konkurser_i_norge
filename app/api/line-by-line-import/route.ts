@@ -288,7 +288,10 @@ async function processBatch(entities: any[]) {
   // Use optimized batch save
   try {
     if (companiesToSave.length > 0) {
-      await optimizedCompanyService.batchSaveCompanies(companiesToSave);
+      await optimizedCompanyService.batchSaveCompanies(
+        companiesToSave,
+        "BULK_IMPORT"
+      );
       saved = companiesToSave.length;
     }
   } catch (error) {

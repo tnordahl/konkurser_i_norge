@@ -4,7 +4,7 @@ import { delay } from "@/lib/config/api-delays";
 
 /**
  * Tvedestrand Data Collection API
- * 
+ *
  * Clean, structured logging for data collection testing
  * Kommune: 4211 (Tvedestrand, Agder)
  */
@@ -38,7 +38,12 @@ interface CollectionResult {
 
 let progressLog: CollectionProgress[] = [];
 
-function logProgress(phase: string, status: CollectionProgress["status"], message: string, data?: any) {
+function logProgress(
+  phase: string,
+  status: CollectionProgress["status"],
+  message: string,
+  data?: any
+) {
   const entry: CollectionProgress = {
     phase,
     status,
@@ -46,18 +51,18 @@ function logProgress(phase: string, status: CollectionProgress["status"], messag
     data,
     timestamp: new Date().toISOString(),
   };
-  
+
   progressLog.push(entry);
-  
+
   // Clean console logging
-  const timeStr = entry.timestamp.split('T')[1].split('.')[0];
+  const timeStr = entry.timestamp.split("T")[1].split(".")[0];
   const statusEmoji = {
     starting: "🚀",
     in_progress: "⚙️",
     completed: "✅",
-    error: "❌"
+    error: "❌",
   }[status];
-  
+
   console.log(`[${timeStr}] ${statusEmoji} ${phase}: ${message}`);
   if (data) {
     console.log(`    └─ ${JSON.stringify(data, null, 2)}`);
@@ -67,12 +72,20 @@ function logProgress(phase: string, status: CollectionProgress["status"], messag
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   progressLog = []; // Reset progress log
-  
+
   try {
-    logProgress("INITIALIZATION", "starting", "Starting Tvedestrand data collection");
+    logProgress(
+      "INITIALIZATION",
+      "starting",
+      "Starting Tvedestrand data collection"
+    );
 
     // Step 1: Setup kommune
-    logProgress("SETUP", "starting", "Setting up Tvedestrand kommune in database");
+    logProgress(
+      "SETUP",
+      "starting",
+      "Setting up Tvedestrand kommune in database"
+    );
     const kommune = await setupTvedestrandKommune();
     logProgress("SETUP", "completed", "Kommune setup completed", {
       kommuneId: kommune.id,
@@ -80,15 +93,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Step 2: Fetch entities
-    logProgress("API_FETCH", "starting", "Fetching entities from Brønnøysundregistrene");
+    logProgress(
+      "API_FETCH",
+      "starting",
+      "Fetching entities from Brønnøysundregistrene"
+    );
     const entities = await fetchTvedestrandEntities();
     logProgress("API_FETCH", "completed", "Entity fetching completed", {
       entitiesFound: entities.length,
-      sampleEntity: entities[0] ? {
-        name: entities[0].navn,
-        orgNumber: entities[0].organisasjonsnummer,
-        city: entities[0].forretningsadresse?.poststed,
-      } : null,
+      sampleEntity: entities[0]
+        ? {
+            name: entities[0].navn,
+            orgNumber: entities[0].organisasjonsnummer,
+            city: entities[0].forretningsadresse?.poststed,
+          }
+        : null,
     });
 
     if (entities.length === 0) {
@@ -97,22 +116,49 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Process and save data
-    logProgress("DATA_PROCESSING", "starting", "Processing and saving company data");
+    logProgress(
+      "DATA_PROCESSING",
+      "starting",
+      "Processing and saving company data"
+    );
     const processingResults = await processAndSaveEntities(entities, kommune);
-    logProgress("DATA_PROCESSING", "completed", "Data processing completed", processingResults);
+    logProgress(
+      "DATA_PROCESSING",
+      "completed",
+      "Data processing completed",
+      processingResults
+    );
 
     // Step 4: Collect postal codes
-    logProgress("POSTAL_CODES", "starting", "Collecting postal codes for the region");
+    logProgress(
+      "POSTAL_CODES",
+      "starting",
+      "Collecting postal codes for the region"
+    );
     const postalCodeResults = await collectPostalCodes(entities, kommune);
-    logProgress("POSTAL_CODES", "completed", "Postal code collection completed", postalCodeResults);
+    logProgress(
+      "POSTAL_CODES",
+      "completed",
+      "Postal code collection completed",
+      postalCodeResults
+    );
 
     // Step 5: Verification
     logProgress("VERIFICATION", "starting", "Verifying saved data integrity");
     const verification = await verifyDataIntegrity(entities);
-    logProgress("VERIFICATION", "completed", "Data verification completed", verification);
+    logProgress(
+      "VERIFICATION",
+      "completed",
+      "Data verification completed",
+      verification
+    );
 
     const totalTime = Date.now() - startTime;
-    logProgress("COMPLETION", "completed", `Tvedestrand data collection completed in ${Math.round(totalTime/1000)}s`);
+    logProgress(
+      "COMPLETION",
+      "completed",
+      `Tvedestrand data collection completed in ${Math.round(totalTime / 1000)}s`
+    );
 
     const result: CollectionResult = {
       success: true,
@@ -127,7 +173,7 @@ export async function POST(request: NextRequest) {
         companiesSaved: processingResults.companiesSaved,
         addressHistoryCreated: processingResults.addressHistoryCreated,
         postalCodesCollected: postalCodeResults.postalCodesCollected,
-        processingTime: `${Math.round(totalTime/1000)}s`,
+        processingTime: `${Math.round(totalTime / 1000)}s`,
       },
       progress: progressLog,
       insights: [
@@ -136,23 +182,26 @@ export async function POST(request: NextRequest) {
         `📍 Created ${processingResults.addressHistoryCreated} address history records`,
         `📮 Collected ${postalCodeResults.postalCodesCollected} unique postal codes`,
         `⚡ Processing rate: ${Math.round(entities.length / (totalTime / 1000))} entities/second`,
-        `✅ Data integrity: ${verification.allDataValid ? 'VERIFIED' : 'ISSUES DETECTED'}`,
+        `✅ Data integrity: ${verification.allDataValid ? "VERIFIED" : "ISSUES DETECTED"}`,
       ],
     };
 
     return NextResponse.json(result);
-
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logProgress("ERROR", "error", `Collection failed: ${errorMessage}`);
-    
-    return NextResponse.json({
-      success: false,
-      error: "Tvedestrand data collection failed",
-      message: errorMessage,
-      progress: progressLog,
-      timestamp: new Date().toISOString(),
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Tvedestrand data collection failed",
+        message: errorMessage,
+        progress: progressLog,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -185,9 +234,9 @@ async function fetchTvedestrandEntities() {
 
   while (true) {
     const url = `https://data.brreg.no/enhetsregisteret/api/enheter?kommunenummer=${kommuneNumber}&size=${pageSize}&page=${page}`;
-    
+
     logProgress("API_FETCH", "in_progress", `Fetching page ${page + 1}`, {
-      url: url.replace(/&/g, ' & '),
+      url: url.replace(/&/g, " & "),
       pageSize,
     });
 
@@ -199,7 +248,9 @@ async function fetchTvedestrandEntities() {
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}`
+      );
     }
 
     const data = await response.json();
@@ -212,7 +263,11 @@ async function fetchTvedestrandEntities() {
     });
 
     if (entities.length === 0) {
-      logProgress("API_FETCH", "in_progress", "No more entities found, ending pagination");
+      logProgress(
+        "API_FETCH",
+        "in_progress",
+        "No more entities found, ending pagination"
+      );
       break;
     }
 
@@ -226,7 +281,7 @@ async function fetchTvedestrandEntities() {
     }
 
     page++;
-    
+
     // Rate limiting
     if (page < totalPages) {
       logProgress("API_FETCH", "in_progress", "Rate limiting pause (1 second)");
@@ -246,11 +301,16 @@ async function processAndSaveEntities(entities: any[], kommune: any) {
   for (let i = 0; i < entities.length; i += batchSize) {
     const batch = entities.slice(i, i + batchSize);
     const batchNumber = Math.floor(i / batchSize) + 1;
-    
-    logProgress("DATA_PROCESSING", "in_progress", `Processing batch ${batchNumber}/${totalBatches}`, {
-      entitiesInBatch: batch.length,
-      progress: `${Math.round((i / entities.length) * 100)}%`,
-    });
+
+    logProgress(
+      "DATA_PROCESSING",
+      "in_progress",
+      `Processing batch ${batchNumber}/${totalBatches}`,
+      {
+        entitiesInBatch: batch.length,
+        progress: `${Math.round((i / entities.length) * 100)}%`,
+      }
+    );
 
     for (const entity of batch) {
       try {
@@ -284,25 +344,41 @@ async function processAndSaveEntities(entities: any[], kommune: any) {
         companiesSaved++;
 
         // Save address history
-        const addressCount = await saveAddressHistory(savedCompany.id, companyData, entity);
+        const addressCount = await saveAddressHistory(
+          savedCompany.id,
+          companyData,
+          entity
+        );
         addressHistoryCreated += addressCount;
-
       } catch (error) {
-        logProgress("DATA_PROCESSING", "error", `Failed to process entity ${entity.organisasjonsnummer}: ${error}`);
+        logProgress(
+          "DATA_PROCESSING",
+          "error",
+          `Failed to process entity ${entity.organisasjonsnummer}: ${error}`
+        );
         // Continue with other entities
       }
     }
 
-    logProgress("DATA_PROCESSING", "in_progress", `Batch ${batchNumber} completed`, {
-      companiesSaved: batch.length,
-      totalProgress: `${Math.round(((i + batch.length) / entities.length) * 100)}%`,
-    });
+    logProgress(
+      "DATA_PROCESSING",
+      "in_progress",
+      `Batch ${batchNumber} completed`,
+      {
+        companiesSaved: batch.length,
+        totalProgress: `${Math.round(((i + batch.length) / entities.length) * 100)}%`,
+      }
+    );
   }
 
   return { companiesSaved, addressHistoryCreated };
 }
 
-async function saveAddressHistory(companyId: string, companyData: any, originalEntity: any): Promise<number> {
+async function saveAddressHistory(
+  companyId: string,
+  companyData: any,
+  originalEntity: any
+): Promise<number> {
   let count = 0;
 
   if (originalEntity.forretningsadresse) {
@@ -313,8 +389,10 @@ async function saveAddressHistory(companyId: string, companyData: any, originalE
         address: formatAddress(originalEntity.forretningsadresse),
         postalCode: originalEntity.forretningsadresse.postnummer,
         city: originalEntity.forretningsadresse.poststed,
-        kommuneNumber: originalEntity.forretningsadresse.kommunenummer || "4211",
-        kommuneName: originalEntity.forretningsadresse.poststed || "Tvedestrand",
+        kommuneNumber:
+          originalEntity.forretningsadresse.kommunenummer || "4211",
+        kommuneName:
+          originalEntity.forretningsadresse.poststed || "Tvedestrand",
         addressType: "business",
         fromDate: companyData.registrationDate || new Date(),
         isCurrentAddress: true,
@@ -325,7 +403,8 @@ async function saveAddressHistory(companyId: string, companyData: any, originalE
 
   if (
     originalEntity.postadresse &&
-    JSON.stringify(originalEntity.postadresse) !== JSON.stringify(originalEntity.forretningsadresse)
+    JSON.stringify(originalEntity.postadresse) !==
+      JSON.stringify(originalEntity.forretningsadresse)
   ) {
     await prisma.companyAddressHistory.create({
       data: {
@@ -353,7 +432,10 @@ async function collectPostalCodes(entities: any[], kommune: any) {
 
   // Extract postal codes from entities
   for (const entity of entities) {
-    if (entity.forretningsadresse?.postnummer && entity.forretningsadresse?.poststed) {
+    if (
+      entity.forretningsadresse?.postnummer &&
+      entity.forretningsadresse?.poststed
+    ) {
       const code = entity.forretningsadresse.postnummer;
       const city = entity.forretningsadresse.poststed;
       postalCodeSet.add(code);
@@ -370,7 +452,7 @@ async function collectPostalCodes(entities: any[], kommune: any) {
 
   // Save postal codes to database
   let postalCodesCollected = 0;
-  for (const [postalCode, city] of postalCodeMap.entries()) {
+  for (const [postalCode, city] of Array.from(postalCodeMap.entries())) {
     await prisma.kommunePostalCode.upsert({
       where: {
         kommuneNumber_postalCode: {
@@ -394,8 +476,8 @@ async function collectPostalCodes(entities: any[], kommune: any) {
 }
 
 async function verifyDataIntegrity(originalEntities: any[]) {
-  const orgNumbers = originalEntities.map(e => e.organisasjonsnummer);
-  
+  const orgNumbers = originalEntities.map((e) => e.organisasjonsnummer);
+
   const companiesInDB = await prisma.company.count({
     where: { organizationNumber: { in: orgNumbers } },
   });
@@ -408,7 +490,8 @@ async function verifyDataIntegrity(originalEntities: any[]) {
     where: { kommuneNumber: "4211" },
   });
 
-  const allDataValid = companiesInDB === originalEntities.length && addressHistoryCount > 0;
+  const allDataValid =
+    companiesInDB === originalEntities.length && addressHistoryCount > 0;
 
   return {
     originalEntities: originalEntities.length,
@@ -440,7 +523,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     service: "Tvedestrand Data Collection",
-    description: "Clean, structured data collection for Tvedestrand kommune (4211)",
+    description:
+      "Clean, structured data collection for Tvedestrand kommune (4211)",
     usage: "POST to start data collection with structured logging",
     features: [
       "✅ Clean console logging without curl noise",

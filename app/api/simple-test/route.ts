@@ -92,17 +92,20 @@ export async function POST(request: NextRequest) {
       entities: analysis,
       dataQuality: {
         entitiesWithBusinessAddress: analysis.filter(
-          (e) => e.hasBusinessAddress
+          (e: any) => e.hasBusinessAddress
         ).length,
-        entitiesWithPostalAddress: analysis.filter((e) => e.hasPostalAddress)
-          .length,
-        bankruptEntities: analysis.filter((e) => e.isBankrupt).length,
-        entitiesWithIndustry: analysis.filter((e) => e.industry).length,
-        uniquePostalCodes: [
-          ...new Set(
-            analysis.map((e) => e.businessAddress?.postalCode).filter(Boolean)
-          ),
-        ],
+        entitiesWithPostalAddress: analysis.filter(
+          (e: any) => e.hasPostalAddress
+        ).length,
+        bankruptEntities: analysis.filter((e: any) => e.isBankrupt).length,
+        entitiesWithIndustry: analysis.filter((e: any) => e.industry).length,
+        uniquePostalCodes: Array.from(
+          new Set(
+            analysis
+              .map((e: any) => e.businessAddress?.postalCode)
+              .filter(Boolean)
+          )
+        ),
       },
       performance: {
         totalTime: `${totalTime}ms`,
@@ -117,9 +120,9 @@ export async function POST(request: NextRequest) {
       },
       insights: [
         `📊 Successfully fetched ${entities.length} real entities from Brønnøysundregistrene`,
-        `🏢 ${analysis.filter((e) => e.hasBusinessAddress).length}/${entities.length} entities have business addresses`,
-        `📮 ${analysis.filter((e) => e.hasPostalAddress).length}/${entities.length} entities have postal addresses`,
-        `💼 ${analysis.filter((e) => e.industry).length}/${entities.length} entities have industry information`,
+        `🏢 ${analysis.filter((e: any) => e.hasBusinessAddress).length}/${entities.length} entities have business addresses`,
+        `📮 ${analysis.filter((e: any) => e.hasPostalAddress).length}/${entities.length} entities have postal addresses`,
+        `💼 ${analysis.filter((e: any) => e.industry).length}/${entities.length} entities have industry information`,
         `⚡ API response time: ${totalTime}ms`,
         entities.length > 0
           ? "✅ API connectivity is working!"

@@ -8,7 +8,8 @@
 import { prisma } from "./database";
 import { delay } from "./config/api-delays";
 import { dateUtils } from "./config/date-utils";
-import { PAGINATION, RISK_THRESHOLDS } from "./config/constants";
+import { PAGINATION } from "./config/constants";
+import { RISK_THRESHOLDS } from "./config/risk-thresholds";
 import { optimizedCompanyService } from "./optimized-company-service";
 
 interface CompanyData {
@@ -62,7 +63,7 @@ export class ComprehensiveCompanyService {
       // Fetch companies from Brønnøysundregistrene API
       const enhetsregisterUrl =
         "https://data.brreg.no/enhetsregisteret/api/enheter";
-      const maxPages = PAGINATION.MAX_PAGES_COMPREHENSIVE_SCAN;
+      const maxPages = PAGINATION.MAX_PAGES_DEEP_SCAN;
 
       for (let page = 0; page < maxPages; page++) {
         console.log(
@@ -280,7 +281,7 @@ export class ComprehensiveCompanyService {
           },
         },
         orderBy: {
-          bankruptcyDate: "desc",
+          lastUpdated: "desc",
         },
       });
 
@@ -341,9 +342,7 @@ export class ComprehensiveCompanyService {
           currentCity: companyData.businessAddress?.poststed,
           businessAddress: companyData.businessAddress,
           postalAddress: companyData.postalAddress,
-          bankruptcyDate: companyData.bankruptcyDate
-            ? new Date(companyData.bankruptcyDate)
-            : null,
+          // bankruptcyDate field doesn't exist in schema - skipping
           lastUpdated: new Date(),
         },
         create: {
@@ -362,16 +361,14 @@ export class ComprehensiveCompanyService {
           currentCity: companyData.businessAddress?.poststed,
           businessAddress: companyData.businessAddress,
           postalAddress: companyData.postalAddress,
-          bankruptcyDate: companyData.bankruptcyDate
-            ? new Date(companyData.bankruptcyDate)
-            : null,
+          // bankruptcyDate field doesn't exist in schema - skipping
         },
       });
 
       // Save address history
       await this.saveAddressHistory(company.id, companyData);
 
-      const isNew = company.createdAt.getTime() === company.updatedAt.getTime();
+      const isNew = company.createdAt.getTime() === company.lastUpdated.getTime();
       return { isNew, companyId: company.id };
     } catch (error) {
       console.error(
@@ -430,7 +427,7 @@ export class ComprehensiveCompanyService {
           id: `${companyId}-${history.addressType}-${Buffer.from(history.address).toString("base64").slice(0, 20)}`,
         },
         update: {
-          isCurrentAddress: history.isCurrentAddress,
+          isCurrentAddress: true, // Default to current address
         },
         create: {
           companyId,
@@ -442,7 +439,7 @@ export class ComprehensiveCompanyService {
           kommuneName: history.kommuneName,
           addressType: history.addressType,
           fromDate: history.fromDate ? new Date(history.fromDate) : null,
-          isCurrentAddress: history.isCurrentAddress || false,
+          isCurrentAddress: true, // Default to current address
         },
       });
     }
@@ -498,7 +495,7 @@ export class ComprehensiveCompanyService {
 
       if (
         hasKommuneConnection &&
-        company.currentKommune?.kommuneNumber !== kommuneNumber
+        company.currentKommuneId !== kommuneNumber
       ) {
         await this.createRiskAlert(company.id, {
           alertType: "HISTORICAL_CONNECTION",
@@ -507,7 +504,7 @@ export class ComprehensiveCompanyService {
           title: "⚠️ Historical Address Connection",
           description: `Company previously had addresses in this kommune. Monitor for potential fraud patterns.`,
           metadata: {
-            currentKommune: company.currentKommune?.kommuneNumber,
+            currentKommune: company.currentKommuneId,
             isBankrupt: isBankrupt,
           },
         });

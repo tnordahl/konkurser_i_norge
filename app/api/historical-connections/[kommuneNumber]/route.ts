@@ -61,7 +61,8 @@ export async function GET(
       ].reduce(
         (sum, c) =>
           sum +
-          c.riskAlerts.filter((alert) => alert.riskLevel === "CRITICAL").length,
+          c.riskAlerts.filter((alert: any) => alert.riskLevel === "CRITICAL")
+            .length,
         0
       ),
     };

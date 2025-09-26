@@ -175,7 +175,7 @@ async function findMovementsByAddressHistory(
         currentKommune: `${currentHistory.kommuneName} (${currentHistory.kommuneNumber})`,
         detectionMethod: "Address History Analysis",
         confidence: "HIGH",
-        moveDate: currentHistory.fromDate,
+        moveDate: currentHistory.fromDate || undefined,
       });
     }
   }
@@ -280,7 +280,7 @@ async function findMovementsByNamePatterns(
             detectionMethod: `Name Pattern: "${pattern}"`,
             confidence:
               nameFilter && pattern === nameFilter ? "HIGH" : "MEDIUM",
-            moveDate: currentAddress.fromDate,
+            moveDate: currentAddress.fromDate || undefined,
           });
         }
       }

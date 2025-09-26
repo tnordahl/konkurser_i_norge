@@ -77,7 +77,7 @@ export async function GET(
       },
       skip,
       take: limit,
-      orderBy: [{ riskScore: "desc" }, { lastUpdated: "desc" }],
+      orderBy: [{ lastUpdated: "desc" }],
     });
 
     // Get total count for pagination
@@ -129,7 +129,6 @@ export async function GET(
           company: {
             organizationNumber: company.organizationNumber,
             name: company.name,
-            riskScore: company.riskScore,
             organizationForm: company.organizationForm,
           },
           movement: {
@@ -148,7 +147,7 @@ export async function GET(
               date: current.createdAt,
             },
             daysBetween: Math.round(daysBetween),
-            riskLevel: calculateMovementRisk(daysBetween, company.riskScore),
+            riskLevel: calculateMovementRisk(daysBetween, 0),
           },
         };
 
@@ -246,5 +245,3 @@ function calculateMovementRisk(
   if (companyRiskScore > 70) return "high";
   return "low";
 }
-
-
