@@ -34,8 +34,9 @@ import useSWR from "swr";
 
 // Sample data - in production this would come from a user management system
 const allKommuner = [
-  { id: "0301", name: "Oslo", county: "Oslo" },
+  { id: "4601", name: "Bergen", county: "Vestland" },
   { id: "1103", name: "Stavanger", county: "Rogaland" },
+  { id: "5001", name: "Trondheim", county: "Trøndelag" },
   // Generic demo data - would be dynamic in production
   { id: "4203", name: "Arendal", county: "Agder" },
   { id: "4204", name: "Kristiansand", county: "Agder" },

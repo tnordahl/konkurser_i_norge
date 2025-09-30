@@ -4,7 +4,7 @@ import { prisma } from "@/lib/database";
 export async function GET() {
   try {
     console.log("🔍 Fetching all kommuner with enhanced data...");
-    
+
     // Get all kommuner first
     const kommuner = await prisma.kommune.findMany({
       select: {
@@ -34,19 +34,19 @@ export async function GET() {
             isActive: true,
           },
           orderBy: {
-            postalCode: 'asc',
+            postalCode: "asc",
           },
         },
       },
       orderBy: [
-        { priority: 'asc' }, // High priority first
-        { name: 'asc' },
+        { priority: "asc" }, // High priority first
+        { name: "asc" },
       ],
     });
 
     // Get company counts by kommune number (since companies aren't directly linked to kommune table)
     const companyCounts = await prisma.company.groupBy({
-      by: ['currentCity'],
+      by: ["currentCity"],
       _count: {
         id: true,
       },
@@ -57,6 +57,14 @@ export async function GET() {
       },
     });
 
+    // Get address change counts by kommune (skip for now as field structure needs verification)
+    // const addressChangeCounts = await prisma.addressChange.groupBy({
+    //   by: ['fromKommuneNumber'],
+    //   _count: {
+    //     id: true,
+    //   },
+    // });
+
     // Get sample companies for each kommune
     const sampleCompaniesByKommune = await Promise.all(
       kommuner.map(async (kommune) => {
@@ -64,11 +72,11 @@ export async function GET() {
         const companies = await prisma.company.findMany({
           where: {
             OR: [
-              { currentCity: { contains: kommune.name, mode: 'insensitive' } },
-              { 
+              { currentCity: { contains: kommune.name, mode: "insensitive" } },
+              {
                 currentPostalCode: {
-                  in: kommune.postalCodes.map(pc => pc.postalCode)
-                }
+                  in: kommune.postalCodes.map((pc) => pc.postalCode),
+                },
               },
             ],
           },
@@ -80,25 +88,33 @@ export async function GET() {
           },
           take: 3,
           orderBy: {
-            lastUpdated: 'desc',
+            lastUpdated: "desc",
           },
         });
-        
+
         return {
           kommuneNumber: kommune.kommuneNumber,
           companies,
-          count: companies.length > 0 ? await prisma.company.count({
-            where: {
-              OR: [
-                { currentCity: { contains: kommune.name, mode: 'insensitive' } },
-                { 
-                  currentPostalCode: {
-                    in: kommune.postalCodes.map(pc => pc.postalCode)
-                  }
-                },
-              ],
-            },
-          }) : 0,
+          count:
+            companies.length > 0
+              ? await prisma.company.count({
+                  where: {
+                    OR: [
+                      {
+                        currentCity: {
+                          contains: kommune.name,
+                          mode: "insensitive",
+                        },
+                      },
+                      {
+                        currentPostalCode: {
+                          in: kommune.postalCodes.map((pc) => pc.postalCode),
+                        },
+                      },
+                    ],
+                  },
+                })
+              : 0,
         };
       })
     );
@@ -106,33 +122,39 @@ export async function GET() {
     console.log(`✅ Found ${kommuner.length} kommuner with enhanced data`);
 
     // Transform data for frontend compatibility
-    const enhancedKommuner = kommuner.map(kommune => {
-      const kompanyData = sampleCompaniesByKommune.find(sc => sc.kommuneNumber === kommune.kommuneNumber);
+    const enhancedKommuner = kommuner.map((kommune) => {
+      const kompanyData = sampleCompaniesByKommune.find(
+        (sc) => sc.kommuneNumber === kommune.kommuneNumber
+      );
       const companyCount = kompanyData?.count || 0;
-      
+
       return {
         // Original fields for compatibility
         id: kommune.kommuneNumber,
         name: kommune.name,
         county: kommune.county,
         bankruptcyCount: kommune._count.bankruptcies,
-        
+
         // Enhanced fields
         region: kommune.region,
         priority: kommune.priority,
         companyCount,
         postalCodeCount: kommune._count.postalCodes,
         addressChangeCount: kommune._count.addressChanges,
-        
+
         // Sample data for preview
         sampleCompanies: kompanyData?.companies || [],
         postalCodes: kommune.postalCodes,
-        
+
         // Status indicators
-        hasData: companyCount > 0,
-        dataQuality: companyCount > 0 ? 
-          (kommune._count.postalCodes > 0 ? 'excellent' : 'good') : 'none',
-        
+        hasData: companyCount > 0 || kommune._count.bankruptcies > 0,
+        dataQuality:
+          companyCount > 100 && kommune._count.postalCodes > 0
+            ? "excellent"
+            : companyCount > 0 || kommune._count.bankruptcies > 0
+              ? "good"
+              : "none",
+
         // Timestamps
         lastUpdated: kommune.updatedAt,
         dataCollectedAt: kommune.createdAt,
@@ -142,14 +164,24 @@ export async function GET() {
     // Calculate summary statistics
     const stats = {
       totalKommuner: kommuner.length,
-      kommunerWithData: enhancedKommuner.filter(k => k.hasData).length,
-      totalCompanies: enhancedKommuner.reduce((sum, k) => sum + k.companyCount, 0),
-      totalBankruptcies: enhancedKommuner.reduce((sum, k) => sum + k.bankruptcyCount, 0),
-      totalPostalCodes: enhancedKommuner.reduce((sum, k) => sum + k.postalCodeCount, 0),
+      kommunerWithData: enhancedKommuner.filter((k) => k.hasData).length,
+      totalCompanies: enhancedKommuner.reduce(
+        (sum, k) => sum + k.companyCount,
+        0
+      ),
+      totalBankruptcies: enhancedKommuner.reduce(
+        (sum, k) => sum + k.bankruptcyCount,
+        0
+      ),
+      totalPostalCodes: enhancedKommuner.reduce(
+        (sum, k) => sum + k.postalCodeCount,
+        0
+      ),
       dataQualityDistribution: {
-        excellent: enhancedKommuner.filter(k => k.dataQuality === 'excellent').length,
-        good: enhancedKommuner.filter(k => k.dataQuality === 'good').length,
-        none: enhancedKommuner.filter(k => k.dataQuality === 'none').length,
+        excellent: enhancedKommuner.filter((k) => k.dataQuality === "excellent")
+          .length,
+        good: enhancedKommuner.filter((k) => k.dataQuality === "good").length,
+        none: enhancedKommuner.filter((k) => k.dataQuality === "none").length,
       },
     };
 
@@ -160,7 +192,7 @@ export async function GET() {
       stats,
       features: [
         "✅ Complete company data with counts",
-        "✅ Postal code coverage information", 
+        "✅ Postal code coverage information",
         "✅ Address change tracking",
         "✅ Data quality indicators",
         "✅ Sample company previews",

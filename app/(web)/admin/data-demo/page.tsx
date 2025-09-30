@@ -16,11 +16,11 @@ import {
 
 export default function DataDemoPage() {
   const [dataGaps, setDataGaps] = useState<any>(null);
-  const [selectedKommune, setSelectedKommune] = useState("0301");
+  const [selectedKommune, setSelectedKommune] = useState("");
 
   const kommuner = [
-    { id: "0301", name: "Oslo", expectedData: "High volume" },
-    // Generic demo data - would be dynamic in production
+    { id: "4601", name: "Bergen", expectedData: "High volume" },
+    { id: "1103", name: "Stavanger", expectedData: "High volume" },
     { id: "4203", name: "Arendal", expectedData: "Medium volume" },
   ];
 

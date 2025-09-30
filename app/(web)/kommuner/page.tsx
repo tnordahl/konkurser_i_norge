@@ -13,7 +13,17 @@ import {
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, Bell, Database, RefreshCw, Search, Building2, MapPin, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  Star,
+  Bell,
+  Database,
+  RefreshCw,
+  Search,
+  Building2,
+  MapPin,
+  TrendingUp,
+  AlertTriangle,
+} from "lucide-react";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -39,7 +49,7 @@ interface EnhancedKommuneData {
     city: string;
   }>;
   hasData: boolean;
-  dataQuality: 'excellent' | 'good' | 'none';
+  dataQuality: "excellent" | "good" | "none";
   lastUpdated: string;
   dataCollectedAt: string;
 }
@@ -76,15 +86,31 @@ function NotificationBadge({ count }: { count: number }) {
   );
 }
 
-function DataQualityBadge({ quality }: { quality: 'excellent' | 'good' | 'none' }) {
+function DataQualityBadge({
+  quality,
+}: {
+  quality: "excellent" | "good" | "none";
+}) {
   const config = {
-    excellent: { color: "bg-green-100 text-green-800", icon: "✅", text: "Komplett" },
-    good: { color: "bg-yellow-100 text-yellow-800", icon: "⚡", text: "Delvis" },
-    none: { color: "bg-gray-100 text-gray-800", icon: "📊", text: "Ingen data" },
+    excellent: {
+      color: "bg-green-100 text-green-800",
+      icon: "✅",
+      text: "Komplett",
+    },
+    good: {
+      color: "bg-yellow-100 text-yellow-800",
+      icon: "⚡",
+      text: "Delvis",
+    },
+    none: {
+      color: "bg-gray-100 text-gray-800",
+      icon: "📊",
+      text: "Ingen data",
+    },
   };
-  
+
   const { color, icon, text } = config[quality];
-  
+
   return (
     <Badge className={`${color} text-xs`}>
       {icon} {text}
@@ -94,26 +120,23 @@ function DataQualityBadge({ quality }: { quality: 'excellent' | 'good' | 'none' 
 
 function PriorityBadge({ priority }: { priority?: string }) {
   if (!priority) return null;
-  
+
   const config = {
     high: { color: "bg-red-100 text-red-800", text: "Høy prioritet" },
     medium: { color: "bg-orange-100 text-orange-800", text: "Medium" },
     low: { color: "bg-blue-100 text-blue-800", text: "Lav" },
   };
-  
-  const { color, text } = config[priority as keyof typeof config] || config.medium;
-  
-  return (
-    <Badge className={`${color} text-xs`}>
-      {text}
-    </Badge>
-  );
+
+  const { color, text } =
+    config[priority as keyof typeof config] || config.medium;
+
+  return <Badge className={`${color} text-xs`}>{text}</Badge>;
 }
 
 function FavoriteKommuner({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
   // Show high-priority kommuner with data as "favorites"
   const favoriteKommuner = kommuner
-    .filter((k) => k.priority === 'high' || k.hasData)
+    .filter((k) => k.priority === "high" || k.hasData)
     .slice(0, 8);
 
   if (favoriteKommuner.length === 0) {
@@ -174,7 +197,9 @@ function FavoriteKommuner({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
                     </div>
                   )}
                 </div>
-                {kommune.priority && <PriorityBadge priority={kommune.priority} />}
+                {kommune.priority && (
+                  <PriorityBadge priority={kommune.priority} />
+                )}
               </div>
             </Link>
           ))}
@@ -214,7 +239,10 @@ function MunicipalityList({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
         </TableHeader>
         <TableBody>
           {kommuner.map((kommune) => (
-            <TableRow key={kommune.id} className={kommune.hasData ? '' : 'opacity-60'}>
+            <TableRow
+              key={kommune.id}
+              className={kommune.hasData ? "" : "opacity-60"}
+            >
               <TableCell>
                 <div className="space-y-1">
                   <Link
@@ -222,7 +250,9 @@ function MunicipalityList({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
                     className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-2"
                   >
                     {kommune.name}
-                    {kommune.priority && <PriorityBadge priority={kommune.priority} />}
+                    {kommune.priority && (
+                      <PriorityBadge priority={kommune.priority} />
+                    )}
                   </Link>
                   <div className="text-xs text-gray-500">
                     {kommune.id}
@@ -236,7 +266,11 @@ function MunicipalityList({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Building2 className="h-4 w-4 text-gray-400" />
-                  <span className={kommune.companyCount > 0 ? 'font-medium' : 'text-gray-400'}>
+                  <span
+                    className={
+                      kommune.companyCount > 0 ? "font-medium" : "text-gray-400"
+                    }
+                  >
                     {kommune.companyCount.toLocaleString()}
                   </span>
                 </div>
@@ -244,7 +278,13 @@ function MunicipalityList({ kommuner }: { kommuner: EnhancedKommuneData[] }) {
               <TableCell>
                 <div className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-gray-400" />
-                  <span className={kommune.postalCodeCount > 0 ? 'font-medium' : 'text-gray-400'}>
+                  <span
+                    className={
+                      kommune.postalCodeCount > 0
+                        ? "font-medium"
+                        : "text-gray-400"
+                    }
+                  >
                     {kommune.postalCodeCount}
                   </span>
                 </div>
@@ -306,12 +346,27 @@ export default function KommunerPage() {
   const kommuner: EnhancedKommuneData[] = apiResponse?.kommuner || [];
   const stats = apiResponse?.stats;
 
-  const filteredKommuner = kommuner.filter(
-    (kommune) =>
-      kommune.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      kommune.id.includes(searchTerm) ||
-      kommune.county.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredKommuner = kommuner
+    .filter(
+      (kommune) =>
+        kommune.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        kommune.id.includes(searchTerm) ||
+        kommune.county.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (kommune.region &&
+          kommune.region.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      // Sort by priority first (high priority first), then by data availability, then by name
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const aPriority =
+        priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
+      const bPriority =
+        priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
+
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      if (a.hasData !== b.hasData) return b.hasData ? 1 : -1;
+      return a.name.localeCompare(b.name, "no");
+    });
 
   if (error) {
     return (
@@ -349,13 +404,20 @@ export default function KommunerPage() {
         <div className="text-right">
           <p className="text-gray-600">
             {apiResponse?.success
-              ? `${apiResponse.count} kommuner`
+              ? `${apiResponse.count} av 356 kommuner`
               : "Ingen data"}
           </p>
           {stats && (
-            <p className="text-sm text-gray-500">
-              {stats.kommunerWithData} med data • {stats.totalCompanies.toLocaleString()} selskaper
-            </p>
+            <div className="text-sm text-gray-500 space-y-1">
+              <p>
+                {stats.kommunerWithData} med data •{" "}
+                {stats.totalCompanies.toLocaleString()} selskaper
+              </p>
+              <p>
+                {stats.totalPostalCodes} postnummer • {stats.totalBankruptcies}{" "}
+                konkurser
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -368,7 +430,9 @@ export default function KommunerPage() {
               <div className="flex items-center gap-3">
                 <Database className="h-8 w-8 text-blue-600" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.kommunerWithData}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.kommunerWithData}
+                  </div>
                   <div className="text-sm text-gray-600">Kommuner med data</div>
                 </div>
               </div>
@@ -379,7 +443,9 @@ export default function KommunerPage() {
               <div className="flex items-center gap-3">
                 <Building2 className="h-8 w-8 text-green-600" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalCompanies.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.totalCompanies.toLocaleString()}
+                  </div>
                   <div className="text-sm text-gray-600">Totalt selskaper</div>
                 </div>
               </div>
@@ -390,7 +456,9 @@ export default function KommunerPage() {
               <div className="flex items-center gap-3">
                 <MapPin className="h-8 w-8 text-purple-600" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalPostalCodes.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.totalPostalCodes.toLocaleString()}
+                  </div>
                   <div className="text-sm text-gray-600">Postnummer</div>
                 </div>
               </div>
@@ -401,13 +469,43 @@ export default function KommunerPage() {
               <div className="flex items-center gap-3">
                 <AlertTriangle className="h-8 w-8 text-red-600" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalBankruptcies}</div>
+                  <div className="text-2xl font-bold">
+                    {stats.totalBankruptcies}
+                  </div>
                   <div className="text-sm text-gray-600">Konkurser</div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Data Coverage Information */}
+      {stats && stats.totalKommuner < 356 && (
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">📊</div>
+                <div>
+                  <h3 className="font-semibold text-lg text-blue-900">
+                    Datainnsamling pågår
+                  </h3>
+                  <p className="text-blue-700 text-sm">
+                    Viser {stats.totalKommuner} av 356 norske kommuner. Flere
+                    kommuner legges til etter hvert som data samles inn.
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-blue-900">
+                  {Math.round((stats.totalKommuner / 356) * 100)}%
+                </div>
+                <div className="text-sm text-blue-700">dekningsgrad</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Detective Feature Highlight */}
