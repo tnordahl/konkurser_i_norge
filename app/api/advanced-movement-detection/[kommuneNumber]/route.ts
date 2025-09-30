@@ -154,7 +154,9 @@ async function performMovementAnalysis(
       addressHistory: {
         some: {
           OR: [
-            { kommuneNumber }, // Moved to this kommune
+            // Companies currently in or with any history in this kommune
+            { kommuneNumber },
+            // Companies that moved TO an address recently (fromDate is recent)
             {
               AND: [
                 { fromDate: { gte: cutoffDate } },
@@ -171,6 +173,14 @@ async function performMovementAnalysis(
                 },
               ],
             },
+            // FIX: Also find companies that moved OUT recently (toDate is recent)
+            {
+              AND: [
+                { kommuneNumber }, // Was in this kommune
+                { toDate: { gte: cutoffDate } }, // Moved out recently
+                { toDate: { not: null } }, // Has actually moved out (not current)
+              ],
+            },
           ],
         },
       },
@@ -178,7 +188,17 @@ async function performMovementAnalysis(
     include: {
       addressHistory: {
         where: {
-          fromDate: { gte: cutoffDate },
+          OR: [
+            // Include addresses they moved TO recently
+            { fromDate: { gte: cutoffDate } },
+            // FIX: Also include addresses they moved OUT of recently
+            {
+              AND: [{ toDate: { gte: cutoffDate } }, { toDate: { not: null } }],
+            },
+            // Include addresses in this kommune regardless of date
+            // (to show full movement pattern)
+            { kommuneNumber },
+          ],
         },
         orderBy: { fromDate: "desc" },
       },
@@ -199,8 +219,18 @@ async function performMovementAnalysis(
   }));
 
   console.log(
-    `🏢 Found ${companiesWithMovements.length} companies with recent address changes`
+    `✅ After deduplication: ${companiesWithCleanHistory.length} companies with clean history`
   );
+
+  // Log companies with insufficient history for debugging
+  const insufficientHistory = companiesWithCleanHistory.filter(
+    (c) => !c.addressHistory || c.addressHistory.length < 2
+  );
+  if (insufficientHistory.length > 0) {
+    console.log(
+      `⚠️  ${insufficientHistory.length} companies skipped (insufficient history < 2 addresses)`
+    );
+  }
 
   // Analyze each company's movement patterns
   const patterns: MovementPattern[] = [];
