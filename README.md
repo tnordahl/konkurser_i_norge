@@ -119,6 +119,64 @@ The application will be available at `http://localhost:3000`.
 - `GET /api/scheduler` - Get scheduler status
 - `POST /api/scheduler` - Control scheduler (start/stop/trigger)
 
+## Address changes & bankruptcies (registry feed)
+
+The `/flytting` page answers two questions with **real, dated data only**:
+who changed business address before going bankrupt, and who is changing
+address now.
+
+- **Source:** Brønnøysundregistrene's update feed
+  (`/enhetsregisteret/api/oppdateringer/enheter?includeChanges=true`). The
+  feed only carries change details from about **15 Aug 2025**, so moves before
+  that date can't be seen.
+- **Code:** `lib/registry/` (parse → ingest → resolve → queries), API under
+  `/api/registry/*`, daily cron `/api/cron/registry-sync`.
+- **Tables:** `address_moves`, `bankruptcy_events`, `registry_address_state`,
+  `registry_feed_cursor` (migration `20261124120000_registry_feed`).
+- **Rules:** a move is a change to the street lines or postcode. Kommune-only
+  recodes don't count. "Moved before bankruptcy" counts only moves strictly
+  before `konkursdato`. Unknown values stay `NULL` and show as "Ukjent".
+
+First run / backfill (about 3.5M updates; it can be stopped and re-run):
+
+```bash
+npx tsx scripts/registry-sync.ts
+```
+
+Then seed every company's current address once from Brreg's nightly register
+snapshot. It streams about 211 MB, takes about 2 minutes and adds about 260 MB
+to the database. After this, every future move has a known origin ("Fra").
+Moves recorded before the import keep an unknown origin, because the feed
+never contains old addresses. Companies registered later are looked up
+automatically by the daily cron.
+
+```bash
+npx tsx scripts/registry-snapshot.ts
+```
+
+### History 2019–2026 (archived copies of the register)
+
+The Internet Archive keeps full copies of Brreg's company file
+(`enheter/lastned`, NLOD licence) from 2019 on. `scripts/registry-archive.ts`
+streams 9 complete snapshots (about 1.1 GB, nothing written to disk) into
+`archived_company_periods`. Each row is a stretch of snapshots in which name,
+business address, postal address (incl. "c/o") and bankruptcy flags stayed the
+same, so changes are dated to an interval, never to an invented day.
+Kommune-only renumbering (e.g. the 2020 mergers) doesn't count as a change.
+The script then fills unknown origins of recorded moves from the snapshot just
+before each move (`address_moves.fromAsOf`). Search and company pages show this
+history.
+
+```bash
+npx tsx scripts/registry-archive.ts
+```
+
+Tests:
+
+```bash
+npx tsx --test tests/registry-parse.test.ts
+```
+
 ## Data Flow
 
 1. **Scheduled Updates**: Every day at 2 AM (Norwegian time)

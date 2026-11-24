@@ -655,6 +655,12 @@ export default function KommunePage({
             {isUpdating ? "Oppdaterer..." : "Oppdater data"}
           </Button>
           <Link
+            href={`/flytting?kommune=${id}`}
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Flytting og konkurs i kommunen →
+          </Link>
+          <Link
             href="/kommuner"
             className="text-blue-600 hover:text-blue-800 hover:underline"
           >

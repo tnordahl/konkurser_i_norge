@@ -5,8 +5,8 @@
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/nightly-dataset-update",
-      "schedule": "0 3 * * *"
+      "path": "/api/cron/registry-sync",
+      "schedule": "0 4 * * *"
     }
   ]
 }
