@@ -31,7 +31,7 @@ async function main() {
     let round = 0;
     while (true) {
       const r = await resolvePending(prisma, { limit: 2000, maxSingles: 200, log });
-      if (r.skipped || r.movesResolved + r.bankruptciesResolved === 0) break;
+      if (r.skipped || r.movesResolved + r.bankruptciesResolved + r.newOrgsResolved === 0) break;
       if (++round % 10 === 0) log(`resolve round ${round}`);
     }
   } finally {

@@ -43,6 +43,8 @@ export interface ParsedUpdate {
   updateId: number;
   organizationNumber: string;
   registeredAt: Date;
+  /** Newly registered organisation ("Ny" updates carry no change details). */
+  isNew: boolean;
   name: string | null; // new name if /navn changed
   address: AddressPatch | null;
   bankruptcies: { type: BankruptcyType; eventDate: Date }[];

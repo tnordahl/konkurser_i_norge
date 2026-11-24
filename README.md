@@ -143,6 +143,17 @@ First run / backfill (about 3.5M updates; it can be stopped and re-run):
 npx tsx scripts/registry-sync.ts
 ```
 
+Then seed every company's current address once from Brreg's nightly register
+snapshot. It streams about 211 MB, takes about 2 minutes and adds about 260 MB
+to the database. After this, every future move has a known origin ("Fra").
+Moves recorded before the import keep an unknown origin, because the feed
+never contains old addresses. Companies registered later are looked up
+automatically by the daily cron.
+
+```bash
+npx tsx scripts/registry-snapshot.ts
+```
+
 Tests:
 
 ```bash

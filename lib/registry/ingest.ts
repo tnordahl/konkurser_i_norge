@@ -84,8 +84,8 @@ export async function ingestFeed(prisma: PrismaClient, opts: IngestOptions = {})
 }
 
 function toKnown(s: StateRow | undefined): KnownAddress | null {
-  // We only "know" an address once the feed or a registry lookup has given us one.
-  if (!s || (s.lastAddressAt === null && s.source === "FEED")) return null;
+  // We only "know" an address once the feed, a lookup or the snapshot gave us one.
+  if (!s || (s.lastAddressAt === null && (s.source === "FEED" || s.source === "NEW"))) return null;
   return {
     lines: s.addressLines,
     address: s.address,
@@ -138,6 +138,12 @@ async function processPage(prisma: PrismaClient, updates: FeedUpdate[]) {
   for (const p of parsed) {
     const org = p.organizationNumber;
     let s = states.get(org);
+
+    if (p.isNew && !s) {
+      // Placeholder: resolvePending looks up its address (source NEW → LOOKUP).
+      s = { ...emptyState(org, p.registeredAt), source: "NEW" };
+      dirty.add(org);
+    }
 
     if (p.name) {
       s = s ?? emptyState(org, p.registeredAt);
@@ -223,6 +229,7 @@ export interface ResolveResult {
   orgsLookedUp: number;
   movesResolved: number;
   bankruptciesResolved: number;
+  newOrgsResolved: number;
 }
 
 /**
@@ -241,17 +248,24 @@ export async function resolvePending(
   opts: { limit?: number; maxSingles?: number; log?: Log } = {}
 ): Promise<ResolveResult> {
   const limit = opts.limit ?? 1000;
-  const empty: ResolveResult = { orgsLookedUp: 0, movesResolved: 0, bankruptciesResolved: 0 };
+  const empty: ResolveResult = { orgsLookedUp: 0, movesResolved: 0, bankruptciesResolved: 0, newOrgsResolved: 0 };
   const cursor = await prisma.registryFeedCursor.findUnique({ where: { feed: FEED } });
   if (!cursor || Date.now() - cursor.lastUpdateAt.getTime() > 3 * DAY) {
     return { ...empty, skipped: "feed not caught up yet" };
   }
 
-  const [moves, events] = await Promise.all([
+  const [moves, events, newOrgs] = await Promise.all([
     prisma.addressMove.findMany({ where: { resolvedAt: null }, take: limit, orderBy: { changedAt: "desc" } }),
     prisma.bankruptcyEvent.findMany({ where: { resolvedAt: null }, take: limit, orderBy: { eventDate: "desc" } }),
+    // Newly registered orgs (placeholders) — record their address so a first move has an origin.
+    prisma.registryAddressState.findMany({
+      where: { source: "NEW" },
+      take: limit,
+      select: { organizationNumber: true },
+    }),
   ]);
-  const orgs = Array.from(new Set([...moves, ...events].map((r) => r.organizationNumber)));
+  const placeholders = newOrgs.map((s) => s.organizationNumber);
+  const orgs = Array.from(new Set([...moves, ...events].map((r) => r.organizationNumber).concat(placeholders)));
   if (orgs.length === 0) return empty;
 
   const states = await loadStates(prisma, orgs);
@@ -321,9 +335,18 @@ export async function resolvePending(
   }
 
   // Remember what we learned so the next move of these orgs has a known "from".
+  let newResolved = 0;
   for (const org of orgs) {
     const e = found.get(org);
-    if (!e) continue;
+    if (!e) {
+      // Placeholder we could not find (e.g. deleted again): stop retrying.
+      if (placeholders.includes(org) && attempted.has(org)) {
+        ops.push(prisma.registryAddressState.update({ where: { organizationNumber: org }, data: { source: "FEED" } }));
+        newResolved++;
+      }
+      continue;
+    }
+    if (states.get(org)?.source === "NEW") newResolved++;
     const cur = addressFromBrreg(e.forretningsadresse);
     const s = states.get(org);
     if (!s) {
@@ -361,6 +384,8 @@ export async function resolvePending(
   }
 
   for (let i = 0; i < ops.length; i += 500) await prisma.$transaction(ops.slice(i, i + 500));
-  opts.log?.(`resolved ${movesResolved} moves, ${bankruptciesResolved} bankruptcy events (${orgs.length} orgs looked up)`);
-  return { orgsLookedUp: orgs.length, movesResolved, bankruptciesResolved };
+  opts.log?.(
+    `resolved ${movesResolved} moves, ${bankruptciesResolved} bankruptcy events, ${newResolved} new orgs (${orgs.length} orgs looked up)`
+  );
+  return { orgsLookedUp: orgs.length, movesResolved, bankruptciesResolved, newOrgsResolved: newResolved };
 }

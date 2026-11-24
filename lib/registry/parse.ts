@@ -49,9 +49,24 @@ export function joinLines(lines: (string | null | undefined)[]): string | null {
  */
 export function parseUpdate(update: FeedUpdate): ParsedUpdate | null {
   const changes = update.endringer;
-  if (!changes || changes.length === 0) return null;
-
   const registeredAt = new Date(update.dato);
+  const isNew = update.endringstype === "Ny";
+  if (!changes || changes.length === 0) {
+    // A new registration tells us nothing yet, but the org should get a known
+    // address (via lookup) so its first move has an origin.
+    return isNew
+      ? {
+          updateId: update.oppdateringsid,
+          organizationNumber: update.organisasjonsnummer,
+          registeredAt,
+          isNew,
+          name: null,
+          address: null,
+          bankruptcies: [],
+        }
+      : null;
+  }
+
   let name: string | null = null;
   const values = new Map<string, unknown>();
   const address: AddressPatch = {
@@ -139,12 +154,13 @@ export function parseUpdate(update: FeedUpdate): ParsedUpdate | null {
     }
   }
 
-  if (!touchedAddress && !name && bankruptcies.length === 0) return null;
+  if (!touchedAddress && !name && bankruptcies.length === 0 && !isNew) return null;
 
   return {
     updateId: update.oppdateringsid,
     organizationNumber: update.organisasjonsnummer,
     registeredAt,
+    isNew,
     name,
     address: touchedAddress ? address : null,
     bankruptcies,
