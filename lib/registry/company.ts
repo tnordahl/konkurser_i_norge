@@ -142,7 +142,7 @@ export async function getAddressConnections(prisma: PrismaClient, orgnr: string)
                ABS(o."changedAt"::date - m."changedAt"::date) AS "daysApart",
                (o."fromAddress" = m."fromAddress" AND o."fromPostalCode" = m."fromPostalCode") AS "sameFrom",
                ((o."toAddress" = m."toAddress" AND o."toPostalCode" = m."toPostalCode")
-                 OR (o."toPostalCode" = m."toPostalCode" AND o."fromPostalCode" = m."fromPostalCode")) AS "sameTo",
+                 OR (o."toPostalCode" = m."toPostalCode" AND o."fromPostalCode" = m."fromPostalCode" AND o."toPostalCode" <> o."fromPostalCode")) AS "sameTo",
                concat_ws(', ', o."fromAddress", o."fromPostalCode", o."fromCity") AS "from",
                concat_ws(', ', o."toAddress", o."toPostalCode", o."toCity") AS "to"
         FROM address_moves m
@@ -151,7 +151,7 @@ export async function getAddressConnections(prisma: PrismaClient, orgnr: string)
          AND ABS(o."changedAt"::date - m."changedAt"::date) <= 30
          AND ((o."fromAddress" = m."fromAddress" AND o."fromPostalCode" = m."fromPostalCode")
               OR (o."toAddress" = m."toAddress" AND o."toPostalCode" = m."toPostalCode")
-              OR (o."toPostalCode" = m."toPostalCode" AND o."fromPostalCode" = m."fromPostalCode"))
+              OR (o."toPostalCode" = m."toPostalCode" AND o."fromPostalCode" = m."fromPostalCode" AND o."toPostalCode" <> o."fromPostalCode"))
         LEFT JOIN registry_address_state s ON s."organizationNumber" = o."organizationNumber"
         WHERE m."organizationNumber" = ${orgnr}
         ORDER BY o."organizationNumber", ABS(o."changedAt"::date - m."changedAt"::date)
