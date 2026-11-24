@@ -71,6 +71,7 @@ export interface AddressPatch {
 export interface RegistryEntity {
   organisasjonsnummer: string;
   navn?: string;
+  historiskeNavn?: { navn?: string }[];
   forretningsadresse?: BrregAddress;
   slettedato?: string;
 }

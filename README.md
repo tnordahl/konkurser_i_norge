@@ -154,6 +154,23 @@ automatically by the daily cron.
 npx tsx scripts/registry-snapshot.ts
 ```
 
+### History 2019–2026 (archived copies of the register)
+
+The Internet Archive keeps full copies of Brreg's company file
+(`enheter/lastned`, NLOD licence) from 2019 on. `scripts/registry-archive.ts`
+streams 9 complete snapshots (about 1.1 GB, nothing written to disk) into
+`archived_company_periods`. Each row is a stretch of snapshots in which name,
+business address, postal address (incl. "c/o") and bankruptcy flags stayed the
+same, so changes are dated to an interval, never to an invented day.
+Kommune-only renumbering (e.g. the 2020 mergers) doesn't count as a change.
+The script then fills unknown origins of recorded moves from the snapshot just
+before each move (`address_moves.fromAsOf`). Search and company pages show this
+history.
+
+```bash
+npx tsx scripts/registry-archive.ts
+```
+
 Tests:
 
 ```bash

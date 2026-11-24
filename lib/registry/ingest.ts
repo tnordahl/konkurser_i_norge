@@ -100,6 +100,7 @@ function emptyState(org: string, at: Date): StateRow {
   return {
     organizationNumber: org,
     name: null,
+    formerNames: null,
     addressLines: null,
     address: null,
     postalCode: null,

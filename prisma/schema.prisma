@@ -373,6 +373,8 @@ model RegistryFeedCursor {
 model RegistryAddressState {
   organizationNumber String    @id
   name               String?
+  /// Former names from Brreg (historiskeNavn), " | "-separated — makes renamed companies findable
+  formerNames        String?
   /// JSON array of address lines; null = lines unknown
   addressLines       Json?
   address            String?
@@ -410,6 +412,8 @@ model AddressMove {
   toCity             String?
   toKommuneNumber    String?
   toKommuneName      String?
+  /// Set when the origin was filled from an archived snapshot: the origin is the address registered on this date
+  fromAsOf           DateTime?
   /// When the name/kommune lookup pass last looked at this row
   resolvedAt         DateTime?
   createdAt          DateTime  @default(now())
@@ -440,4 +444,52 @@ model BankruptcyEvent {
   @@index([organizationNumber])
   @@index([eventType, eventDate])
   @@map("bankruptcy_events")
+}
+
+// ---------------------------------------------------------------------------
+// History from archived copies of Brreg's full company file (Internet Archive,
+// 2019–2026). Only the snapshot dates are known: a change is dated to the
+// interval between two snapshots, never to an invented day.
+// ---------------------------------------------------------------------------
+
+/// One archived snapshot that has been imported.
+model ArchivedSnapshot {
+  snapshotAt DateTime @id
+  source     String // archive URL
+  entities   Int
+  importedAt DateTime @default(now())
+
+  @@map("archived_snapshots")
+}
+
+/// A stretch of consecutive snapshots in which a company's registered data stayed the same.
+model ArchivedCompanyPeriod {
+  id                 String    @id @default(cuid())
+  organizationNumber String
+  name               String?
+  organizationForm   String?
+  address            String?
+  postalCode         String?
+  city               String?
+  kommuneNumber      String?
+  kommuneName        String?
+  /// Full postal address text (incl. "c/o ...")
+  postAddress        String?
+  konkurs            Boolean   @default(false)
+  konkursdato        DateTime?
+  underAvvikling     Boolean   @default(false)
+  tvangsavvikling    Boolean   @default(false)
+  /// First snapshot with these values
+  firstSeen          DateTime
+  /// Last snapshot with these values
+  lastSeen           DateTime
+  /// The next snapshot (the change happened between lastSeen and nextSeen); null = unchanged in the last snapshot
+  nextSeen           DateTime?
+  /// true = the company was missing from the next snapshot (deleted in between)
+  goneAfter          Boolean   @default(false)
+
+  @@index([organizationNumber, firstSeen])
+  @@index([postalCode])
+  @@index([kommuneNumber])
+  @@map("archived_company_periods")
 }

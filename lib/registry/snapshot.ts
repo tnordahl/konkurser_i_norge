@@ -87,6 +87,7 @@ export async function importSnapshot(
 async function writeBatch(prisma: PrismaClient, batch: RegistryEntity[], snapshotAt: Date, fillBefore: Date) {
   const orgs: string[] = [];
   const names: (string | null)[] = [];
+  const former: (string | null)[] = [];
   const lines: string[] = [];
   const addr: (string | null)[] = [];
   const post: (string | null)[] = [];
@@ -97,6 +98,8 @@ async function writeBatch(prisma: PrismaClient, batch: RegistryEntity[], snapsho
     const a = addressFromBrreg(e.forretningsadresse);
     orgs.push(e.organisasjonsnummer);
     names.push(e.navn ?? null);
+    const fn = (e.historiskeNavn ?? []).map((h) => h.navn).filter(Boolean);
+    former.push(fn.length ? fn.join(" | ") : null);
     lines.push(JSON.stringify(e.forretningsadresse?.adresse ?? []));
     addr.push(a.address);
     post.push(a.postalCode);
@@ -106,33 +109,37 @@ async function writeBatch(prisma: PrismaClient, batch: RegistryEntity[], snapsho
   }
 
   // xmax = 0 only for freshly inserted rows; lets us count inserts vs fills.
-  const rows = await prisma.$queryRaw<{ inserted: boolean }[]>(Prisma.sql`
-    INSERT INTO registry_address_state AS s
-      ("organizationNumber", name, "addressLines", address, "postalCode", city,
-       "kommuneNumber", "kommuneName", "asOf", source)
-    SELECT o, n, l::jsonb, a, p, c, kn, kname, ${snapshotAt}, 'SNAPSHOT'
-    FROM unnest(${orgs}::text[], ${names}::text[], ${lines}::text[], ${addr}::text[],
-                ${post}::text[], ${city}::text[], ${kNum}::text[], ${kName}::text[])
-         AS t(o, n, l, a, p, c, kn, kname)
-    ON CONFLICT ("organizationNumber") DO UPDATE SET
-      name            = COALESCE(s.name, EXCLUDED.name),
-      "addressLines"  = COALESCE(s."addressLines", EXCLUDED."addressLines"),
-      address         = COALESCE(s.address, EXCLUDED.address),
-      "postalCode"    = COALESCE(s."postalCode", EXCLUDED."postalCode"),
-      city            = COALESCE(s.city, EXCLUDED.city),
-      "kommuneNumber" = COALESCE(s."kommuneNumber", EXCLUDED."kommuneNumber"),
-      "kommuneName"   = COALESCE(s."kommuneName", EXCLUDED."kommuneName")
-    WHERE (s."lastAddressAt" IS NULL OR s."lastAddressAt" <= ${fillBefore})
+  // Address fields are only filled (never overwritten) and only under the safety
+  // conditions; former names are registry metadata and are always refreshed.
+  const safe = Prisma.sql`(s."lastAddressAt" IS NULL OR s."lastAddressAt" <= ${fillBefore})
       AND (s."kommuneChangedAt" IS NULL OR s."kommuneChangedAt" <= ${fillBefore})
       AND (s."postalCode" IS NULL OR s."postalCode" IS NOT DISTINCT FROM EXCLUDED."postalCode")
       AND (s."kommuneNumber" IS NULL OR s."kommuneNumber" IS NOT DISTINCT FROM EXCLUDED."kommuneNumber")
-      AND (s.address IS NULL OR s.address IS NOT DISTINCT FROM EXCLUDED.address)
-      AND (s."addressLines" IS NULL OR s.address IS NULL OR s."postalCode" IS NULL
-           OR s."kommuneNumber" IS NULL OR s.name IS NULL)
+      AND (s.address IS NULL OR s.address IS NOT DISTINCT FROM EXCLUDED.address)`;
+  const fill = (col: string) =>
+    Prisma.sql`CASE WHEN ${safe} THEN COALESCE(s.${Prisma.raw(col)}, EXCLUDED.${Prisma.raw(col)}) ELSE s.${Prisma.raw(col)} END`;
+  // xmax = 0 only for freshly inserted rows; lets us count inserts vs updates.
+  const rows = await prisma.$queryRaw<{ inserted: boolean }[]>(Prisma.sql`
+    INSERT INTO registry_address_state AS s
+      ("organizationNumber", name, "formerNames", "addressLines", address, "postalCode", city,
+       "kommuneNumber", "kommuneName", "asOf", source)
+    SELECT o, n, f, l::jsonb, a, p, c, kn, kname, ${snapshotAt}, 'SNAPSHOT'
+    FROM unnest(${orgs}::text[], ${names}::text[], ${former}::text[], ${lines}::text[], ${addr}::text[],
+                ${post}::text[], ${city}::text[], ${kNum}::text[], ${kName}::text[])
+         AS t(o, n, f, l, a, p, c, kn, kname)
+    ON CONFLICT ("organizationNumber") DO UPDATE SET
+      name            = COALESCE(s.name, EXCLUDED.name),
+      "formerNames"   = EXCLUDED."formerNames",
+      "addressLines"  = ${fill('"addressLines"')},
+      address         = ${fill("address")},
+      "postalCode"    = ${fill('"postalCode"')},
+      city            = ${fill("city")},
+      "kommuneNumber" = ${fill('"kommuneNumber"')},
+      "kommuneName"   = ${fill('"kommuneName"')}
     RETURNING (xmax = 0) AS inserted
   `);
   const inserted = rows.filter((r) => r.inserted).length;
-  return { inserted, filled: rows.length - inserted };
+  return { inserted, filled: rows.length - inserted }; // "filled" = existing rows touched (names refreshed, gaps filled if safe)
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

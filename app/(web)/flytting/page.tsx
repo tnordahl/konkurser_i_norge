@@ -1,9 +1,21 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import useSWR from "swr";
-import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, Info, MoveRight, Truck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronRight,
+  Info,
+  MoveRight,
+  Truck,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +67,7 @@ interface BankruptMover {
   minDaysBefore: number;
   moves: (Omit<Move, "id" | "organizationNumber" | "companyName"> & { daysBefore: number })[];
 }
+
 
 type MoveType = "CROSS_KOMMUNE" | "NEW_POSTCODE" | "SAME_POSTCODE" | "UNKNOWN";
 
@@ -186,6 +199,129 @@ function SortHead({
   );
 }
 
+interface KommuneRef {
+  kommuneNumber: string;
+  kommuneName: string;
+}
+
+/**
+ * Accepts a kommune name, a kommunenummer or a postnummer (e.g. "Risør",
+ * "4201" or "4950") and always says which kommune is being shown.
+ */
+function KommuneFilter({ kommune, onChange }: { kommune: string; onChange: (k: string) => void }) {
+  const { data: all } = useSWR<{ kommuner: KommuneRef[] }>("/api/registry/kommune-lookup", fetcher, {
+    revalidateOnFocus: false,
+  });
+  const current = all?.kommuner.find((k) => k.kommuneNumber === kommune);
+  const [input, setInput] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<KommuneRef[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  // Show the name when the kommune comes from the URL.
+  useEffect(() => {
+    if (current) setInput((v) => (v === "" || v === current.kommuneNumber ? current.kommuneName : v));
+  }, [current]);
+
+  const choose = (k: KommuneRef, why?: string) => {
+    onChange(k.kommuneNumber);
+    setInput(k.kommuneName);
+    setCandidates([]);
+    setNote(why ?? null);
+  };
+
+  const submit = async () => {
+    const v = input.trim();
+    if (!v) {
+      onChange("");
+      setNote(null);
+      setCandidates([]);
+      return;
+    }
+    setBusy(true);
+    try {
+      const d = await fetcher(`/api/registry/kommune-lookup?q=${encodeURIComponent(v)}`);
+      if (d.match) {
+        choose(
+          d.match,
+          d.matchedBy === "postnummer" ? `${v} er et postnummer – viser kommunen ${d.match.kommuneName}.` : undefined
+        );
+      } else {
+        setCandidates(d.candidates ?? []);
+        setNote(d.candidates?.length ? "Flere kommuner passer – velg én:" : `Fant ingen kommune for «${v}».`);
+      }
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Oppslaget feilet");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="text-sm">
+      <span className="block text-gray-600 mb-1">Kommune</span>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Hele landet"
+          list="kommune-liste"
+          className="w-48"
+          aria-label="Kommunenavn, kommunenummer eller postnummer"
+        />
+        <datalist id="kommune-liste">
+          {all?.kommuner.map((k) => <option key={k.kommuneNumber} value={k.kommuneName} />)}
+        </datalist>
+        <Button type="submit" variant="outline" disabled={busy}>
+          Vis
+        </Button>
+        {kommune && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              onChange("");
+              setInput("");
+              setNote(null);
+              setCandidates([]);
+            }}
+          >
+            Nullstill
+          </Button>
+        )}
+      </form>
+      <div className="mt-1 text-xs text-gray-600 max-w-xs">
+        {kommune ? (
+          <>Viser {current ? `${current.kommuneName} (kommunenr. ${kommune})` : `kommunenr. ${kommune}`}. </>
+        ) : (
+          <>Navn, kommunenr. eller postnr. </>
+        )}
+        {note && <span className={candidates.length || !kommune ? "text-amber-800" : ""}>{note}</span>}
+        {candidates.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {candidates.map((k) => (
+              <button
+                key={k.kommuneNumber}
+                type="button"
+                onClick={() => choose(k)}
+                className="rounded border px-2 py-0.5 hover:bg-gray-50"
+              >
+                {k.kommuneName}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** "12 dager før" / "1 dag etter" — red within 30 days, amber within 90. */
 function DaysPill({ days, suffix, title }: { days: number; suffix: string; title?: string }) {
   const cls =
@@ -216,7 +352,6 @@ function FlyttingInner() {
 
   const [tab, setTab] = useState<"bankrupt" | "moves">(sp.get("tab") === "moves" ? "moves" : "bankrupt");
   const [kommune, setKommune] = useState(sp.get("kommune") ?? "");
-  const [kommuneInput, setKommuneInput] = useState(sp.get("kommune") ?? "");
   const [days, setDays] = useState(sp.get("days") ?? "90");
   const [windowDays, setWindowDays] = useState(sp.get("window") ?? "365");
   const [moveFilter, setMoveFilter] = useState(sp.get("filter") ?? "all");
@@ -252,7 +387,6 @@ function FlyttingInner() {
     keepPreviousData: true,
   });
   const coverage: Coverage | undefined = data?.coverage;
-  const kommuneValid = kommuneInput === "" || /^\d{4}$/.test(kommuneInput);
 
   return (
     <div className="space-y-6">
@@ -308,39 +442,7 @@ function FlyttingInner() {
 
       <Card>
         <CardContent className="pt-6 flex flex-wrap items-end gap-4">
-          <label className="text-sm">
-            <span className="block text-gray-600 mb-1">Kommunenummer</span>
-            <form
-              className="flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (kommuneValid) setKommune(kommuneInput);
-              }}
-            >
-              <Input
-                value={kommuneInput}
-                onChange={(e) => setKommuneInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                placeholder="Hele landet"
-                className={`w-32 ${kommuneValid ? "" : "border-red-400"}`}
-                inputMode="numeric"
-              />
-              <Button type="submit" variant="outline" disabled={!kommuneValid}>
-                Vis
-              </Button>
-              {kommune && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setKommune("");
-                    setKommuneInput("");
-                  }}
-                >
-                  Nullstill
-                </Button>
-              )}
-            </form>
-          </label>
+          <KommuneFilter kommune={kommune} onChange={setKommune} />
 
           <Select
             label={tab === "bankrupt" ? "Konkurs siste" : "Endret siste"}
@@ -464,12 +566,22 @@ function BankruptTable({
   onSort: (k: SortKey) => void;
 }) {
   const head = { sort, order, onSort };
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">
           {rows ? `${rows.length} selskaper flyttet før konkurs` : "Selskaper som flyttet før konkurs"}
         </CardTitle>
+        <p className="text-sm text-gray-500">Klikk en rad for alle adresseendringer, eller navnet for selskapssiden.</p>
       </CardHeader>
       <CardContent>
         {loading && !rows ? (
@@ -480,54 +592,86 @@ function BankruptTable({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-6"></TableHead>
                 <SortHead label="Selskap" k="name" {...head} />
                 <SortHead label="Konkurs" k="eventDate" {...head} />
                 <SortHead label="Dager før" k="daysBefore" {...head} className="text-right" />
-                <TableHead>Adresseendringer før konkurs</TableHead>
+                <TableHead>Siste adresseendring før konkurs</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.eventId} className="align-top">
-                  <TableCell className="min-w-[12rem]">
-                    <Company name={r.companyName} orgnr={r.organizationNumber} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <div className="font-medium">{fmtDate(r.eventDate)}</div>
-                    {r.eventType !== "KONKURS" && (
-                      <div className="text-xs text-gray-500">
-                        {r.eventType === "TVANGSAVVIKLING" ? "Tvangsavvikling" : "Avvikling"}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    className="text-right whitespace-nowrap font-semibold tabular-nums"
-                    title="Dager fra nærmeste adresseendring til konkurs"
-                  >
-                    {r.minDaysBefore}
-                  </TableCell>
-                  <TableCell>
-                    <div className="grid grid-cols-[auto_auto_minmax(6rem,max-content)_auto_minmax(8rem,1fr)_auto] items-start gap-x-3 gap-y-3 text-sm">
-                      {r.moves.map((m, i) => (
-                        <div key={i} className="contents">
-                          <span className="text-gray-500 whitespace-nowrap">{fmtDate(m.changedAt)}</span>
-                          <span>
-                            <DaysPill
-                              days={m.daysBefore}
-                              suffix="før"
-                              title={`Adressen ble endret ${m.daysBefore} dager før konkursdato`}
-                            />
-                          </span>
-                          <Place s={side(m, "from")} unknownHint={UNKNOWN_FROM} />
-                          <MoveRight className="w-4 h-4 text-gray-400 mt-0.5" />
-                          <Place s={side(m, "to")} unknownHint="Ny adresse ikke kjent" />
-                          <MoveBadge t={m.moveType} />
+              {rows.map((r) => {
+                const isOpen = open.has(r.eventId);
+                const last = r.moves[r.moves.length - 1];
+                return (
+                  <Fragment key={r.eventId}>
+                    <TableRow className="cursor-pointer align-middle" onClick={() => toggle(r.eventId)}>
+                      <TableCell className="text-gray-400">
+                        {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </TableCell>
+                      <TableCell className="min-w-[12rem]">
+                        <Link
+                          href={`/selskap/${r.organizationNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium hover:underline"
+                        >
+                          {r.companyName ?? <span className="italic text-gray-400">Navn ukjent</span>}
+                        </Link>
+                        <div className="text-xs text-gray-500">
+                          {r.organizationNumber.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3")}
                         </div>
-                      ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="font-medium">{fmtDate(r.eventDate)}</div>
+                        {r.eventType !== "KONKURS" && (
+                          <div className="text-xs text-gray-500">
+                            {r.eventType === "TVANGSAVVIKLING" ? "Tvangsavvikling" : "Avvikling"}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap font-semibold tabular-nums">{r.minDaysBefore}</TableCell>
+                      <TableCell className="text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-gray-500 whitespace-nowrap">{fmtDate(last.changedAt)}</span>
+                          <span className="font-medium">{last.fromKommuneName ?? <span className="italic text-gray-400">Ukjent</span>}</span>
+                          <MoveRight className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">
+                            {last.toKommuneName ?? <span className="italic text-gray-400">Ukjent</span>}
+                          </span>
+                          <MoveBadge t={last.moveType} />
+                          {r.moves.length > 1 && <span className="text-xs text-gray-500">+{r.moves.length - 1} flere</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {isOpen && (
+                      <TableRow className="bg-gray-50/60 hover:bg-gray-50/60">
+                        <TableCell></TableCell>
+                        <TableCell colSpan={4} className="py-4">
+                          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+                            <div>
+                              <div className="text-xs font-semibold text-gray-500 mb-2">Adresseendringer før konkurs</div>
+                              <div className="grid grid-cols-[auto_auto_minmax(6rem,max-content)_auto_minmax(8rem,1fr)_auto] items-start gap-x-3 gap-y-3 text-sm">
+                                {r.moves.map((m, i) => (
+                                  <div key={i} className="contents">
+                                    <span className="text-gray-500 whitespace-nowrap">{fmtDate(m.changedAt)}</span>
+                                    <span>
+                                      <DaysPill days={m.daysBefore} suffix="før" />
+                                    </span>
+                                    <Place s={side(m, "from")} unknownHint={UNKNOWN_FROM} />
+                                    <MoveRight className="w-4 h-4 text-gray-400 mt-0.5" />
+                                    <Place s={side(m, "to")} unknownHint="Ny adresse ikke kjent" />
+                                    <MoveBadge t={m.moveType} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         )}
