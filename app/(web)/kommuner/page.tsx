@@ -59,11 +59,23 @@ function KommunerInner() {
   const { data, error, isLoading } = useSWR(`/api/registry/kommuner?days=${days}`, fetcher, { keepPreviousData: true });
   const all: Row[] = useMemo(() => data?.kommuner ?? [], [data]);
 
+  // A 4-digit number that isn't a kommunenummer is treated as a postcode ("4950" → Risør).
+  const trimmed = q.trim();
+  const looksLikePostcode = /^\d{4}$/.test(trimmed) && all.length > 0 && !all.some((r) => r.kommuneNumber === trimmed);
+  const { data: lookup } = useSWR(
+    looksLikePostcode ? `/api/registry/kommune-lookup?q=${trimmed}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+  const postcodeKommune: string | null = looksLikePostcode && lookup?.match ? lookup.match.kommuneNumber : null;
+
   const rows = useMemo(() => {
-    const needle = q.trim().toLocaleUpperCase("nb");
-    const filtered = needle
-      ? all.filter((r) => r.kommuneName.toLocaleUpperCase("nb").includes(needle) || r.kommuneNumber.startsWith(needle))
-      : all;
+    const needle = trimmed.toLocaleUpperCase("nb");
+    const filtered = postcodeKommune
+      ? all.filter((r) => r.kommuneNumber === postcodeKommune)
+      : needle
+        ? all.filter((r) => r.kommuneName.toLocaleUpperCase("nb").includes(needle) || r.kommuneNumber.startsWith(needle))
+        : all;
     const val = (r: Row) => (sort === "net" ? r.movesIn - r.movesOut : r[sort]);
     return [...filtered].sort((a, b) => {
       const va = val(a);
@@ -71,7 +83,7 @@ function KommunerInner() {
       const c = typeof va === "string" ? va.localeCompare(vb as string, "nb") : (va as number) - (vb as number);
       return order === "asc" ? c : -c;
     });
-  }, [all, q, sort, order]);
+  }, [all, trimmed, postcodeKommune, sort, order]);
 
   const total = (f: keyof Row) => all.reduce((s, r) => s + (r[f] as number), 0);
   const onSort = (k: SortKey) => {
@@ -126,7 +138,15 @@ function KommunerInner() {
         <CardContent className="pt-6 flex flex-wrap items-end gap-4 text-sm">
           <label>
             <span className="block text-gray-600 mb-1">Søk kommune</span>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Navn eller kommunenr." className="w-56" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Navn, kommunenr. eller postnr." className="w-56" />
+            {postcodeKommune && lookup?.match && (
+              <span className="block text-xs text-gray-600 mt-1">
+                {trimmed} er et postnummer – viser {lookup.match.kommuneName} ({lookup.match.kommuneNumber}).
+              </span>
+            )}
+            {looksLikePostcode && lookup && !lookup.match && (
+              <span className="block text-xs text-amber-700 mt-1">Fant ingen kommune for {trimmed}.</span>
+            )}
           </label>
           <label>
             <span className="block text-gray-600 mb-1">Periode</span>

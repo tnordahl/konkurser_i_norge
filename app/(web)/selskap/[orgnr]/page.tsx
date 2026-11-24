@@ -38,11 +38,111 @@ const MOVE_LABEL: Record<string, string> = {
   UNKNOWN: "Adresse endret",
 };
 
+interface Connections {
+  coMovers: {
+    organizationNumber: string;
+    name: string | null;
+    changedAt: string;
+    daysApart: number;
+    sameFrom: boolean;
+    sameTo: boolean;
+    from: string | null;
+    to: string | null;
+    bankrupt: boolean;
+  }[];
+  coLocated: {
+    organizationNumber: string;
+    name: string | null;
+    address: string;
+    overlapFrom: string;
+    overlapTo: string;
+    bankrupt: boolean;
+    deleted: boolean;
+  }[];
+  coLocatedTotal: number;
+}
+
+function ConnectionsCard({ connections }: { connections?: Connections }) {
+  if (!connections) return null;
+  const { coMovers, coLocated, coLocatedTotal } = connections;
+  const shared = coLocatedTotal > 15;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Forbindelser via adresse</CardTitle>
+        <p className="text-xs text-gray-500">
+          Selskaper som flyttet samtidig eller holdt til på samme adresse. Et signal å undersøke videre, ikke bevis på
+          sammenheng.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5 text-sm">
+        <div>
+          <div className="text-xs font-semibold text-gray-500 mb-1">Flyttet samtidig (innen 30 dager)</div>
+          {coMovers.length ? (
+            <ul className="space-y-1.5">
+              {coMovers.map((m) => (
+                <li key={m.organizationNumber} className="flex flex-wrap items-baseline gap-x-2">
+                  <Link href={`/selskap/${m.organizationNumber}`} className="font-medium text-blue-700 hover:underline">
+                    {m.name ?? m.organizationNumber}
+                  </Link>
+                  <span className="text-xs text-gray-600">
+                    {fmt(m.changedAt)} ({m.daysApart === 0 ? "samme dag" : `${m.daysApart} ${m.daysApart === 1 ? "dag" : "dager"} fra hverandre`})
+                    {m.sameFrom && m.sameTo ? " · samme fra- og til-sted" : m.sameFrom ? " · samme fra-adresse" : " · samme til-sted"}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {m.from || "?"} → {m.to || "?"}
+                  </span>
+                  {m.bankrupt && (
+                    <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">
+                      Konkurs/tvangsavvikling
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-gray-400">Ingen registrert.</span>
+          )}
+        </div>
+        <div>
+          <div className="text-xs font-semibold text-gray-500 mb-1">
+            Samme forretningsadresse samtidig ({coLocatedTotal}
+            {coLocatedTotal > coLocated.length ? `, viser ${coLocated.length}` : ""})
+            {shared && <span className="font-normal text-amber-700"> · mange selskaper, trolig kontorfellesskap</span>}
+          </div>
+          {coLocated.length ? (
+            <ul className="space-y-1">
+              {coLocated.map((p) => (
+                <li key={p.organizationNumber} className="flex flex-wrap items-baseline gap-x-2">
+                  <Link href={`/selskap/${p.organizationNumber}`} className="text-blue-700 hover:underline">
+                    {p.name ?? p.organizationNumber}
+                  </Link>
+                  <span className="text-xs text-gray-500">
+                    {p.address} · {new Date(p.overlapFrom).getFullYear()}–{new Date(p.overlapTo).getFullYear()}
+                  </span>
+                  {p.bankrupt && (
+                    <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">
+                      Konkurs/tvangsavvikling
+                    </Badge>
+                  )}
+                  {p.deleted && !p.bankrupt && <Badge variant="outline">Slettet</Badge>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-gray-400">Ingen i arkivkopiene.</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CompanyPage({ params }: { params: { orgnr: string } }) {
   const { data, error, isLoading } = useSWR(`/api/registry/company/${params.orgnr}`, fetcher);
   if (isLoading) return <p className="text-sm text-gray-500">Laster…</p>;
   if (error) return <p className="text-sm text-red-700">Kunne ikke hente selskapet: {error.message}</p>;
-  const { company: c, events, moves, archived } = data;
+  const { company: c, events, moves, archived, connections } = data;
   const orgnrFmt = params.orgnr.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
 
   return (
@@ -202,6 +302,8 @@ export default function CompanyPage({ params }: { params: { orgnr: string } }) {
         </CardContent>
       </Card>
 
+
+      <ConnectionsCard connections={connections} />
 
       <Card>
         <CardHeader>

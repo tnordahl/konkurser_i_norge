@@ -136,17 +136,12 @@ function Place({ s, unknownHint }: { s: Side; unknownHint: string }) {
 
 function Company({ name, orgnr }: { name: string | null; orgnr: string }) {
   return (
-    <div className="leading-tight">
-      <div className="font-medium">{name ?? <span className="text-gray-400 italic">Navn ukjent</span>}</div>
-      <a
-        href={`https://virksomhet.brreg.no/nb/oppslag/enheter/${orgnr}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs text-blue-600 hover:underline"
-      >
-        {orgnr.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3")}
-      </a>
-    </div>
+    <Link href={`/selskap/${orgnr}`} className="group block leading-tight" title="Se selskapet: tidligere navn, historikk og adresser">
+      <div className="font-medium group-hover:underline">
+        {name ?? <span className="text-gray-400 italic">Navn ukjent</span>}
+      </div>
+      <div className="text-xs text-blue-600">{orgnr.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3")}</div>
+    </Link>
   );
 }
 
