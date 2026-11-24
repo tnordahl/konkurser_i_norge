@@ -42,6 +42,8 @@ interface Move {
   toCity: string | null;
   toKommuneNumber: string | null;
   toKommuneName: string | null;
+  /** Set when the company was later declared bankrupt / forcibly dissolved. */
+  laterBankruptcy?: { eventType: "KONKURS" | "TVANGSAVVIKLING"; eventDate: string; daysAfter: number } | null;
 }
 
 interface BankruptMover {
@@ -181,6 +183,24 @@ function SortHead({
         <Icon className={`w-3.5 h-3.5 ${active ? "" : "opacity-40"}`} />
       </button>
     </TableHead>
+  );
+}
+
+/** "12 dager før" / "1 dag etter" — red within 30 days, amber within 90. */
+function DaysPill({ days, suffix, title }: { days: number; suffix: string; title?: string }) {
+  const cls =
+    days <= 30
+      ? "bg-red-100 text-red-800 border-red-200"
+      : days <= 90
+        ? "bg-amber-100 text-amber-800 border-amber-200"
+        : "bg-gray-100 text-gray-700 border-gray-200";
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap tabular-nums ${cls}`}
+    >
+      {days} {days === 1 ? "dag" : "dager"} {suffix}
+    </span>
   );
 }
 
@@ -491,8 +511,12 @@ function BankruptTable({
                       {r.moves.map((m, i) => (
                         <div key={i} className="contents">
                           <span className="text-gray-500 whitespace-nowrap">{fmtDate(m.changedAt)}</span>
-                          <span className="text-xs text-gray-600 whitespace-nowrap pt-0.5 tabular-nums">
-                            {m.daysBefore} d før
+                          <span>
+                            <DaysPill
+                              days={m.daysBefore}
+                              suffix="før"
+                              title={`Adressen ble endret ${m.daysBefore} dager før konkursdato`}
+                            />
                           </span>
                           <Place s={side(m, "from")} unknownHint={UNKNOWN_FROM} />
                           <MoveRight className="w-4 h-4 text-gray-400 mt-0.5" />
@@ -554,6 +578,7 @@ function MovesTable({
                 <TableHead></TableHead>
                 <TableHead>Til</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Konkurs</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -574,6 +599,23 @@ function MovesTable({
                   </TableCell>
                   <TableCell>
                     <MoveBadge t={m.moveType} />
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {m.laterBankruptcy ? (
+                      <div className="leading-tight space-y-0.5">
+                        <DaysPill
+                          days={m.laterBankruptcy.daysAfter}
+                          suffix="etter"
+                          title="Dager fra adresseendringen til konkursdato"
+                        />
+                        <div className="text-xs text-gray-500 whitespace-nowrap">
+                          {m.laterBankruptcy.eventType === "KONKURS" ? "Konkurs" : "Tvangsavvikling"}{" "}
+                          {fmtDate(m.laterBankruptcy.eventDate)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-300">–</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

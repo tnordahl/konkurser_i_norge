@@ -96,7 +96,37 @@ export async function listMoves(prisma: PrismaClient, q: MoveQuery) {
       },
     }),
   ]);
-  return { total, unknownOrigin, moves };
+
+  // For each move: did the company later go bankrupt / get forcibly dissolved?
+  // Same rule as the bankruptcy view: the event date must be after the move.
+  const orgs = Array.from(new Set(moves.map((m) => m.organizationNumber)));
+  const events = orgs.length
+    ? await prisma.bankruptcyEvent.findMany({
+        where: { organizationNumber: { in: orgs }, eventType: { in: ["KONKURS", "TVANGSAVVIKLING"] } },
+        select: { organizationNumber: true, eventType: true, eventDate: true },
+        orderBy: { eventDate: "asc" },
+      })
+    : [];
+  const withLater = moves.map((m) => {
+    const e = events.find((ev) => ev.organizationNumber === m.organizationNumber && ev.eventDate > m.changedAt);
+    return {
+      ...m,
+      laterBankruptcy: e
+        ? {
+            eventType: e.eventType as BankruptcyType,
+            eventDate: e.eventDate,
+            daysAfter: calendarDaysBetween(m.changedAt, e.eventDate),
+          }
+        : null,
+    };
+  });
+  return { total, unknownOrigin, moves: withLater };
+}
+
+/** Whole calendar days (UTC) from `a` to `b` — same as `b::date - a::date` in SQL. */
+export function calendarDaysBetween(a: Date, b: Date): number {
+  const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.round((day(b) - day(a)) / (24 * 60 * 60 * 1000));
 }
 
 export interface BankruptMoverQuery {
