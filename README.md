@@ -119,6 +119,36 @@ The application will be available at `http://localhost:3000`.
 - `GET /api/scheduler` - Get scheduler status
 - `POST /api/scheduler` - Control scheduler (start/stop/trigger)
 
+## Address changes & bankruptcies (registry feed)
+
+The `/flytting` page answers two questions with **real, dated data only**:
+who changed business address before going bankrupt, and who is changing
+address now.
+
+- **Source:** Brønnøysundregistrene's update feed
+  (`/enhetsregisteret/api/oppdateringer/enheter?includeChanges=true`). The
+  feed only carries change details from about **15 Aug 2025**, so moves before
+  that date can't be seen.
+- **Code:** `lib/registry/` (parse → ingest → resolve → queries), API under
+  `/api/registry/*`, daily cron `/api/cron/registry-sync`.
+- **Tables:** `address_moves`, `bankruptcy_events`, `registry_address_state`,
+  `registry_feed_cursor` (migration `20261124120000_registry_feed`).
+- **Rules:** a move is a change to the street lines or postcode. Kommune-only
+  recodes don't count. "Moved before bankruptcy" counts only moves strictly
+  before `konkursdato`. Unknown values stay `NULL` and show as "Ukjent".
+
+First run / backfill (about 3.5M updates; it can be stopped and re-run):
+
+```bash
+npx tsx scripts/registry-sync.ts
+```
+
+Tests:
+
+```bash
+npx tsx --test tests/registry-parse.test.ts
+```
+
 ## Data Flow
 
 1. **Scheduled Updates**: Every day at 2 AM (Norwegian time)

@@ -14,6 +14,7 @@ import {
   Settings,
   Home,
   Activity,
+  Truck,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -36,6 +37,12 @@ const navigationItems: NavigationItem[] = [
     label: "Kommuner",
     icon: <MapPin className="w-4 h-4" />,
     description: "Alle kommuner og deres data",
+  },
+  {
+    href: "/flytting",
+    label: "Flytting",
+    icon: <Truck className="w-4 h-4" />,
+    description: "Adresseendringer og flytting før konkurs",
   },
   {
     href: "/detective",
